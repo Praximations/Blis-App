@@ -1,7 +1,9 @@
 import Feather from '@expo/vector-icons/Feather';
+import type { ErrorBoundaryProps } from 'expo-router';
 import { Tabs } from 'expo-router/js-tabs';
 import type { ColorValue } from 'react-native';
 
+import { ScreenError } from '@/components/ScreenError';
 import { useCart } from '@/state/cart';
 import { colors, fonts } from '@/theme/tokens';
 
@@ -11,6 +13,11 @@ const icon = (name: IconName) =>
   function TabIcon({ color }: { color: ColorValue }) {
     return <Feather name={name} size={21} color={color as string} />;
   };
+
+/** Shown in place of a tab that failed. */
+export function ErrorBoundary(props: ErrorBoundaryProps) {
+  return <ScreenError {...props} />;
+}
 
 export default function TabsLayout() {
   const { count } = useCart();

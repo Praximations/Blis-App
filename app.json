@@ -5,7 +5,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": ["blisfarms", "shop.95581405551.app"],
+    "scheme": "blisfarms",
     "userInterfaceStyle": "light",
     "backgroundColor": "#fefefe",
     "ios": {

@@ -150,11 +150,17 @@ export default function AccountScreen() {
           <View style={styles.rows}>
             <Row title="Returns Policy" external onPress={() => void openWeb('/pages/returns-policy')} />
             <Row title="Privacy Policy" external onPress={() => void openWeb('/policies/privacy-policy')} />
+            <Row title="Your Privacy Choices" external onPress={() => void openWeb('/pages/data-sharing-opt-out')} />
             <Row title="Terms of Service" external onPress={() => void openWeb('/pages/terms-of-service')} />
           </View>
         </View>
 
-        {auth.signedIn ? <Button label="Sign out" variant="outline" wide onPress={() => void auth.store.signOut()} /> : null}
+        {auth.signedIn ? (
+          <View style={styles.leave}>
+            <Button label="Sign out" variant="outline" wide onPress={() => void auth.store.signOut()} />
+            <Button label="Delete my account" variant="ghost" size="sm" onPress={() => router.push('/delete-account')} style={styles.delete} />
+          </View>
+        ) : null}
 
         <Text variant="hint" center>
           Blis Farms · Food with a story.{'\n'}Version {Constants.expoConfig?.version ?? '1.0.0'}
@@ -252,4 +258,6 @@ const styles = StyleSheet.create({
   orderWords: { flex: 1, gap: 2 },
   orderName: { fontFamily: fonts.label, fontSize: 15, color: colors.ink900 },
   orderRight: { alignItems: 'flex-end', gap: 2 },
+  leave: { gap: 6 },
+  delete: { alignSelf: 'center' },
 });

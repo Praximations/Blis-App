@@ -46,8 +46,6 @@ export const maxWidth = 760;
 export const fonts = {
   /** Titles and prices. */
   serif: 'EBGaramond_400Regular',
-  serifItalic: 'EBGaramond_400Regular_Italic',
-  serifMedium: 'EBGaramond_500Medium',
   /** Paragraphs. */
   text: 'GoogleSans_400Regular',
   textMedium: 'GoogleSans_500Medium',

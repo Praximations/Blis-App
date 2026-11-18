@@ -15,7 +15,10 @@ const PRODUCT_EXTRAS = HAS_TOKEN
       accentColor: metafield(namespace: "custom", key: "accent_color") { value }
       moodImage1: metafield(namespace: "custom", key: "mood_image_1") { ${MOOD_IMAGE} }
       moodImage2: metafield(namespace: "custom", key: "mood_image_2") { ${MOOD_IMAGE} }
-      moodImage3: metafield(namespace: "custom", key: "mood_image_3") { ${MOOD_IMAGE} }`
+      moodImage3: metafield(namespace: "custom", key: "mood_image_3") { ${MOOD_IMAGE} }
+      nutritionLabel: metafield(namespace: "custom", key: "nutrition_label") {
+        reference { ... on Metaobject { fields { key value } } }
+      }`
   : '';
 
 const VARIANT_SUMMARY = /* GraphQL */ `

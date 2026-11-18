@@ -77,6 +77,8 @@ export interface Product extends Omit<ProductSummary, 'variants'> {
   moodImage1?: MoodImage | null;
   moodImage2?: MoodImage | null;
   moodImage3?: MoodImage | null;
+  /** custom.nutrition_label: the store's Nutrition label entry (see nutrition.ts). */
+  nutritionLabel?: { reference: { fields?: { key: string; value: string | null }[] } | null } | null;
 }
 
 /** A photo of the product in use (custom.mood_image_1…3). */

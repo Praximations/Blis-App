@@ -185,6 +185,8 @@ export interface Customer {
 export interface OrderLine {
   id: string;
   title: string;
+  /** The product's name; shown when the line has no title of its own. */
+  name: string;
   quantity: number;
   variantId: string | null;
   variantTitle: string | null;
@@ -229,7 +231,7 @@ const CUSTOMER = /* GraphQL */ `
 
 // Two versions: the full one, and one with only the fields every version
 // of the API has had, used if Shopify refuses the first.
-const ORDER_LINES = `lineItems(first: 50) { nodes { id title quantity variantId variantTitle image { url altText width height } totalPrice { ${MONEY} } } }`;
+const ORDER_LINES = `lineItems(first: 50) { nodes { id title name quantity variantId variantTitle image { url altText width height } totalPrice { ${MONEY} } } }`;
 const ORDER_FULL = `
   id name number processedAt cancelledAt financialStatus fulfillmentStatus statusPageUrl
   totalPrice { ${MONEY} } subtotal { ${MONEY} } totalShipping { ${MONEY} } totalTax { ${MONEY} }

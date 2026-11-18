@@ -21,6 +21,13 @@ interface GraphQLError {
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
+ * Shopify refused the token (mistyped, or deleted in the admin). The shop
+ * can still be read without one, so the app carries on without it rather
+ * than going dark; what only the token can read (metafields) is then missing.
+ */
+let tokenRefused = false;
+
+/**
  * Runs a query or mutation. Throws StorefrontError when the request fails
  * or Shopify answers with errors and no data; a throttled request is tried
  * again (twice, a little later each time).
@@ -34,9 +41,10 @@ export async function storefront<T>(
     'Content-Type': 'application/json',
     Accept: 'application/json',
   };
-  if (config.storefrontToken) headers['X-Shopify-Storefront-Access-Token'] = config.storefrontToken;
-
   for (let attempt = 0; ; attempt++) {
+    if (config.storefrontToken && !tokenRefused) headers['X-Shopify-Storefront-Access-Token'] = config.storefrontToken;
+    else delete headers['X-Shopify-Storefront-Access-Token'];
+
     let response: Response;
     try {
       response = await fetch(storefrontEndpoint, {
@@ -48,6 +56,12 @@ export async function storefront<T>(
     } catch (error) {
       if ((error as Error)?.name === 'AbortError') throw error;
       throw new StorefrontError("Can't reach the shop. Check your connection and try again.");
+    }
+
+    if ((response.status === 401 || response.status === 403) && config.storefrontToken && !tokenRefused) {
+      tokenRefused = true;
+      console.warn('The Storefront token was refused; carrying on without it. Run "npm run doctor".');
+      continue;
     }
 
     const throttled = response.status === 429 || response.status === 430;

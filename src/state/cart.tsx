@@ -3,6 +3,7 @@
 // one) and the screen shows Shopify's answer.
 
 import { createContext, useContext, useEffect, useMemo, useSyncExternalStore, type ReactNode } from 'react';
+import { Platform } from 'react-native';
 
 import { keys, readJSON, writeJSON } from '@/lib/storage';
 import * as api from '@/shopify/cart';
@@ -21,6 +22,13 @@ export interface CartState {
 }
 
 type Listener = () => void;
+
+/**
+ * Goes on every basket made here, and so on its order: "Additional details"
+ * in the Shopify admin then tells an app order from a website order. The
+ * underscore keeps it out of sight at checkout.
+ */
+const SOURCE = [{ key: '_source', value: `Blis Farms app (${Platform.OS})` }];
 
 export class CartStore {
   private state: CartState = { ready: false, cart: null, pending: 0, error: null, added: null };
@@ -105,7 +113,7 @@ export class CartStore {
       if (current) {
         cart = await api.addLines(current.id, [line]);
       } else {
-        cart = await api.createCart([line]);
+        cart = await api.createCart([line], SOURCE);
         if (this.buyerToken) cart = await api.setBuyer(cart.id, this.buyerToken).catch(() => cart);
       }
       this.set({ added: { title, at: Date.now() } });
@@ -118,7 +126,7 @@ export class CartStore {
     return this.run(async () => {
       if (!lines.length) return this.state.cart;
       const current = this.state.cart;
-      const cart = current ? await api.addLines(current.id, lines) : await api.createCart(lines);
+      const cart = current ? await api.addLines(current.id, lines) : await api.createCart(lines, SOURCE);
       return this.apply(cart);
     });
   }

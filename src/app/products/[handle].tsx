@@ -11,6 +11,7 @@ import { FlatList, Pressable, ScrollView, Share, StyleSheet, View, type NativeSc
 import { Button, tap } from '@/components/Button';
 import { Field } from '@/components/Field';
 import { HtmlView } from '@/components/HtmlView';
+import { NutritionSection } from '@/components/NutritionSection';
 import { Price } from '@/components/Price';
 import { ProductRail } from '@/components/ProductRail';
 import { QuantityStepper } from '@/components/QuantityStepper';
@@ -24,6 +25,7 @@ import { useFollowing } from '@/lib/hooks';
 import { useLayout } from '@/lib/layout';
 import { shopUrl } from '@/lib/links';
 import { getProduct, getRecommendations } from '@/shopify/catalog';
+import { parseNutrition } from '@/shopify/nutrition';
 import { imageUrl } from '@/shopify/storefront';
 import type { Image as ShopImage, Product, Variant } from '@/shopify/types';
 import { useCartStore } from '@/state/cart';
@@ -158,6 +160,8 @@ function Details({ product }: { product: Product }) {
     return list;
   }, [product, variant?.image?.url]);
 
+  const nutrition = useMemo(() => parseNutrition(product.nutritionLabel?.reference?.fields), [product.nutritionLabel]);
+
   const add = async () => {
     if (!variant || adding) return;
     setAdding(true);
@@ -245,6 +249,12 @@ function Details({ product }: { product: Product }) {
       {product.descriptionHtml ? (
         <View style={styles.details}>
           <HtmlView html={product.descriptionHtml} />
+        </View>
+      ) : null}
+
+      {nutrition ? (
+        <View style={styles.details}>
+          <NutritionSection nutrition={nutrition} />
         </View>
       ) : null}
 

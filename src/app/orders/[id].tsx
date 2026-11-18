@@ -91,7 +91,7 @@ export default function OrderScreen() {
                   </View>
                   <View style={styles.lineWords}>
                     <Text style={styles.lineTitle} numberOfLines={2}>
-                      {line.title}
+                      {line.title || line.name}
                     </Text>
                     <Text variant="hint">
                       {[line.variantTitle && line.variantTitle !== 'Default Title' ? line.variantTitle : '', `Qty ${line.quantity}`]

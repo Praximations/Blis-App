@@ -1,18 +1,17 @@
 import { EBGaramond_400Regular } from '@expo-google-fonts/eb-garamond/400Regular';
-import { EBGaramond_400Regular_Italic } from '@expo-google-fonts/eb-garamond/400Regular_Italic';
-import { EBGaramond_500Medium } from '@expo-google-fonts/eb-garamond/500Medium';
 import { GoogleSans_400Regular } from '@expo-google-fonts/google-sans/400Regular';
 import { GoogleSans_500Medium } from '@expo-google-fonts/google-sans/500Medium';
 import { GoogleSans_600SemiBold } from '@expo-google-fonts/google-sans/600SemiBold';
 import { GoogleSans_700Bold } from '@expo-google-fonts/google-sans/700Bold';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useFonts } from 'expo-font';
-import { DefaultTheme, Stack, ThemeProvider } from 'expo-router';
+import { DefaultTheme, Stack, ThemeProvider, type ErrorBoundaryProps } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
-import { View } from 'react-native';
+import { Platform, View } from 'react-native';
 
+import { ScreenError } from '@/components/ScreenError';
 import { Toast } from '@/components/Toast';
 import { AuthProvider } from '@/state/auth';
 import { CartProvider } from '@/state/cart';
@@ -42,18 +41,22 @@ const theme = {
   },
 };
 
+/** Shown in place of a screen that failed. */
+export function ErrorBoundary(props: ErrorBoundaryProps) {
+  return <ScreenError {...props} />;
+}
+
 export default function RootLayout() {
   const [loaded, failed] = useFonts({
     EBGaramond_400Regular,
-    EBGaramond_400Regular_Italic,
-    EBGaramond_500Medium,
     GoogleSans_400Regular,
     GoogleSans_500Medium,
     GoogleSans_600SemiBold,
     GoogleSans_700Bold,
   });
   // Without its fonts the app is still usable; never leave the splash up.
-  const ready = loaded || !!failed;
+  // In a browser the page shows at once and the fonts follow.
+  const ready = loaded || !!failed || Platform.OS === 'web';
 
   useEffect(() => {
     if (ready) void SplashScreen.hideAsync().catch(() => undefined);

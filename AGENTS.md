@@ -29,6 +29,11 @@ store and release setup is in [docs/SETUP.md](docs/SETUP.md).
   phones. The Storefront token is Shopify's public one.
 - A child of `<Link asChild>` takes one style object, not an array.
 - Before committing: `npm run check` (typecheck, lint, tests).
+- `npm run doctor` checks the setup against the shop (token, delivery
+  rules, the Blis Delivery app, sign-in). Keep it in step with what the app
+  reads: a new token-only field belongs in its token check.
+- Route types (`.expo/types`) are written by `npx expo start`; after adding
+  a screen, start it once before `npm run typecheck`.
 
 ---
 

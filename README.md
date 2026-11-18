@@ -20,10 +20,10 @@ products, the same basket rules for delivery and pickup, the same checkout.
 | Home | The website's home page: hero, sections, "Recommended for you", olive oil, beef, our story. |
 | Shop | Every part of the shop, from the store's own `shop-sections` menu, with "Coming soon" for the empty ones. |
 | Section (`/collections/…`) | Products two across, categories as chips, sort, "In stock". |
-| Product (`/products/…`) | Photos, sizes, price, add to basket, description, "You may also like". Fresh food shows where and when we deliver. |
+| Product (`/products/…`) | Photos, sizes, price, add to basket, description, "Nutrition and ingredients" (the label's Nutrition Facts panel, ingredients, allergens), "You may also like". Fresh food shows where and when we deliver. |
 | Search | Suggestions while typing, results, recent searches. |
 | Basket | Lines, quantities, discount code, the delivery card (Delivery / Pickup, ZIP check, day, time window), checkout. |
-| Account | Sign in with a one-time code, orders, "Order again", "Follow your driver", favourites, help and policies. |
+| Account | Sign in with a one-time code, orders, "Order again", "Follow your driver", favourites, help and policies, "Delete my account". |
 | Delivery & pickup | The week's days, order-by times, areas and ZIP codes, from the same rules the basket uses. |
 
 Checkout is Shopify's own, opened in the phone's browser sheet, so Apple
@@ -44,12 +44,20 @@ Then press `w` for the web, `i` for the iOS simulator or `a` for Android, or
 scan the code with Expo Go on a phone. It works against the live shop as it
 is, without any setup: browsing, search and the basket need no key.
 
-Copy `.env.example` to `.env.local` to add the two things that do need the
-Shopify admin (see [docs/SETUP.md](docs/SETUP.md)):
+**Setting it up for real** (Shopify admin, building, the app stores) is in
+[docs/SETUP.md](docs/SETUP.md), step by step. At any point this says what is
+on and what is still missing:
+
+```bash
+npm run doctor
+```
+
+Copy `.env.example` to `.env` to add the two things that need the Shopify
+admin:
 
 | Variable | What it turns on |
 |---|---|
-| `EXPO_PUBLIC_SHOPIFY_STOREFRONT_TOKEN` | "Local delivery only" (the basket then asks for a delivery day), the product photo tints and mood photos, and the delivery rules the Blis Delivery app publishes. |
+| `EXPO_PUBLIC_SHOPIFY_STOREFRONT_TOKEN` | "Local delivery only" (the basket then asks for a delivery day), nutrition labels, the product photo tints and mood photos, and the delivery rules the Blis Delivery app publishes. |
 | `EXPO_PUBLIC_SHOPIFY_CUSTOMER_CLIENT_ID` | Signing in inside the app. Without it the Account tab opens the website. |
 
 **The Storefront token is needed before release.** Without it the app can't
@@ -65,7 +73,11 @@ npm run check
 
 That runs the typecheck, the linter and the tests (`tests/`): delivery days
 and cut-offs, ZIP and town matching, the cart attributes, the delivery
-choice with and without the Blis Delivery app, and the small helpers.
+choice with and without the Blis Delivery app, the basket, nutrition labels
+and the small helpers.
+
+The web version builds with `npm run build:web` into `dist/`; `vercel.json`
+lets Vercel do that from the repository for a link to share.
 
 ## How it's put together
 
@@ -85,6 +97,8 @@ src/
   lib/           money, HTML, links, storage
   config.ts      which store (EXPO_PUBLIC_* variables)
 tests/
+scripts/doctor.mjs   "is it set up?" (npm run doctor)
+app.json, app.config.js   name, icon, identifiers; the sign-in address from the shop id
 docs/SETUP.md    Shopify admin, building and releasing
 ```
 
@@ -108,10 +122,21 @@ docs/SETUP.md    Shopify admin, building and releasing
 
 - "My week" (the weekly plan), the inbox, restaurant accounts and quick
   order, and subscriptions: on the website only.
-- Driver tips in the basket.
+- Lab results (the store has none yet) and driver tips in the basket.
 - Push notifications (delivery texts still come by SMS).
 - Favourites are kept on the phone; they don't sync with the website's.
 - Our Roots, Find Us, Help, the FAQ and the policies open the website.
+- Stories: the shop's blogs are empty, so there is nothing to show yet.
+
+### Good to know
+
+- Orders placed in the app carry `_source: Blis Farms app (ios|android|web)`
+  in the order's Additional details in the Shopify admin.
+- If Shopify ever refuses the Storefront token (deleted in the admin, say),
+  the app carries on without it rather than going dark; `npm run doctor`
+  says so.
+- A screen that fails shows "Something went wrong" with a way to try again,
+  not a blank page.
 
 ## Fonts and pictures
 
