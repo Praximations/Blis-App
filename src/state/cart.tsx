@@ -8,7 +8,7 @@ import { Platform } from 'react-native';
 import { keys, readJSON, writeJSON } from '@/lib/storage';
 import * as api from '@/shopify/cart';
 import { StorefrontError } from '@/shopify/storefront';
-import type { Cart } from '@/shopify/types';
+import type { Cart, CartLine } from '@/shopify/types';
 
 export interface CartState {
   /** false until the saved basket has been looked up. */
@@ -29,6 +29,12 @@ type Listener = () => void;
  * underscore keeps it out of sight at checkout.
  */
 const SOURCE = [{ key: '_source', value: `Blis Farms app (${Platform.OS})` }];
+
+/** The basket without lines of quantity 0 (what a sold-out product leaves behind). */
+function withoutEmptyLines(cart: Cart): Cart {
+  const nodes = cart.lines.nodes.filter((line) => line.quantity > 0);
+  return nodes.length === cart.lines.nodes.length ? cart : { ...cart, lines: { nodes } };
+}
 
 export class CartStore {
   private state: CartState = { ready: false, cart: null, pending: 0, error: null, added: null };
@@ -72,9 +78,36 @@ export class CartStore {
   }
 
   private async apply(cart: Cart) {
-    this.set({ cart });
-    await this.remember(cart);
-    return cart;
+    const kept = withoutEmptyLines(cart);
+    this.set({ cart: kept });
+    await this.remember(kept);
+    return kept;
+  }
+
+  /**
+   * Tidies what Shopify answered. A product that sold out leaves a line of
+   * quantity 0 behind, and Shopify repeats its remark about it on every
+   * later change: the line is taken out, and only the remarks about the
+   * lines this change touched are kept, in the basket's own words.
+   */
+  private async settle(cart: Cart, touched: (line: CartLine) => boolean): Promise<{ cart: Cart; remark: string | null }> {
+    const lines = cart.lines.nodes;
+    const remarks: string[] = [];
+    for (const warning of api.warningsFor(cart)) {
+      const line = lines.find((l) => l.id === warning.target);
+      if (!line || !touched(line)) continue;
+      const title = line.merchandise.product.title;
+      const remark =
+        warning.code === 'MERCHANDISE_OUT_OF_STOCK' || line.quantity <= 0
+          ? `${title} is sold out.`
+          : warning.code === 'MERCHANDISE_NOT_ENOUGH_STOCK'
+            ? `Only ${line.quantity} of ${title} ${line.quantity === 1 ? 'is' : 'are'} available.`
+            : warning.message.replace(/\bcart\b/g, 'basket');
+      if (!remarks.includes(remark)) remarks.push(remark);
+    }
+    const empty = lines.filter((l) => l.quantity <= 0).map((l) => l.id);
+    const tidy = empty.length ? await api.removeLines(cart.id, empty).catch(() => cart) : cart;
+    return { cart: withoutEmptyLines(tidy), remark: remarks.join(' ') || null };
   }
 
   /** Looks up the basket saved on the phone. */
@@ -86,7 +119,7 @@ export class CartStore {
         const id = await readJSON<string>(keys.cartId);
         if (!id) return;
         const cart = await api.fetchCart(id);
-        if (cart) this.set({ cart });
+        if (cart) this.set({ cart: (await this.settle(cart, () => false)).cart });
         else await this.remember(null);
       })
       .catch(() => undefined)
@@ -98,7 +131,8 @@ export class CartStore {
     return this.run(async () => {
       const id = this.state.cart?.id;
       if (!id) return null;
-      const cart = await api.fetchCart(id);
+      const read = await api.fetchCart(id);
+      const cart = read ? (await this.settle(read, () => false)).cart : null;
       this.set({ cart });
       await this.remember(cart);
       return cart;
@@ -109,25 +143,39 @@ export class CartStore {
     return this.run(async () => {
       const line = { merchandiseId, quantity };
       const current = this.state.cart;
-      let cart: Cart;
-      if (current) {
-        cart = await api.addLines(current.id, [line]);
-      } else {
-        cart = await api.createCart([line], SOURCE);
-        if (this.buyerToken) cart = await api.setBuyer(cart.id, this.buyerToken).catch(() => cart);
+      const inBasket = (cart: Cart | null) =>
+        (cart?.lines.nodes ?? []).filter((l) => l.merchandise.id === merchandiseId).reduce((sum, l) => sum + l.quantity, 0);
+      const before = inBasket(current);
+
+      const answer = current ? await api.addLines(current.id, [line]) : await api.createCart([line], SOURCE);
+      const settled = await this.settle(answer, (l) => l.merchandise.id === merchandiseId);
+      let cart = settled.cart;
+      if (inBasket(cart) <= before) {
+        // Nothing went in: it sold out since the page was read, or the basket
+        // already holds all there is. A basket made just for it isn't kept.
+        if (current) await this.apply(cart);
+        throw new StorefrontError(settled.remark ?? "That couldn't be added to your basket. Please try again.", 200, 'NOT_ADDED');
       }
+      if (!current && this.buyerToken) cart = withoutEmptyLines(await api.setBuyer(cart.id, this.buyerToken).catch(() => cart));
       this.set({ added: { title, at: Date.now() } });
-      return this.apply(cart);
+      await this.apply(cart);
+      // Fewer went in than were asked for.
+      if (settled.remark) this.set({ error: settled.remark });
+      return cart;
     });
   }
 
-  /** Puts several things in the basket at once ("Order again"). */
+  /** Puts several things in the basket at once ("Order again"). What is sold out is said, the rest goes in. */
   addMany(lines: { merchandiseId: string; quantity: number }[]): Promise<Cart | null> {
     return this.run(async () => {
       if (!lines.length) return this.state.cart;
       const current = this.state.cart;
-      const cart = current ? await api.addLines(current.id, lines) : await api.createCart(lines, SOURCE);
-      return this.apply(cart);
+      const wanted = new Set(lines.map((l) => l.merchandiseId));
+      const answer = current ? await api.addLines(current.id, lines) : await api.createCart(lines, SOURCE);
+      const settled = await this.settle(answer, (l) => wanted.has(l.merchandise.id));
+      const cart = await this.apply(settled.cart);
+      if (settled.remark) this.set({ error: settled.remark });
+      return cart;
     });
   }
 
@@ -146,9 +194,13 @@ export class CartStore {
       const id = this.state.cart?.id;
       if (!id) return null;
       try {
-        const cart =
+        const answer =
           quantity > 0 ? await api.updateLines(id, [{ id: lineId, quantity }]) : await api.removeLines(id, [lineId]);
-        return await this.apply(cart);
+        const settled = await this.settle(answer, (l) => l.id === lineId);
+        const cart = await this.apply(settled.cart);
+        // The shop has fewer than were asked for.
+        if (settled.remark) this.set({ error: settled.remark });
+        return cart;
       } catch (error) {
         // Put back what Shopify has.
         const cart = await api.fetchCart(id).catch(() => null);

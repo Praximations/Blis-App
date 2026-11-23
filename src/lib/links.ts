@@ -27,6 +27,32 @@ export async function openWeb(pathOrUrl: string): Promise<void> {
   }).catch(() => Linking.openURL(url).catch(() => undefined));
 }
 
+/** Opens the phone's maps on a place ("Swank Farmers Market, 14311 North Road, Loxahatchee Groves"). */
+export async function openMaps(place: string): Promise<void> {
+  const query = encodeURIComponent(place);
+  const url = Platform.OS === 'ios' ? `https://maps.apple.com/?q=${query}` : `https://www.google.com/maps/search/?api=1&query=${query}`;
+  if (Platform.OS === 'web') {
+    window.open(url, '_blank', 'noopener');
+    return;
+  }
+  // The system hands these addresses to the maps app.
+  await Linking.openURL(url).catch(() => undefined);
+}
+
+/**
+ * The address in a pickup place's details ("10 am – 1 pm · 14311 North Road,
+ * Loxahatchee Groves" → the part with the street), with the place's name
+ * in front so maps finds the right door. '' when there is no address.
+ */
+export function pickupAddress(name: string, details: string): string {
+  const address = details
+    .split('·')
+    .map((part) => part.trim())
+    .filter((part) => /\d/.test(part) && /[A-Za-z]{3,}\s+[A-Za-z]/.test(part) && !/\b(am|pm)\b/i.test(part))
+    .pop();
+  return address ? [name, address].filter(Boolean).join(', ') : '';
+}
+
 /**
  * Where a link on the shop leads inside the app, if anywhere:
  * /products/x → the product, /collections/x → the section.

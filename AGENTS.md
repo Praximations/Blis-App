@@ -28,7 +28,14 @@ store and release setup is in [docs/SETUP.md](docs/SETUP.md).
 - **Nothing secret in the app.** Every `EXPO_PUBLIC_*` value ships to
   phones. The Storefront token is Shopify's public one.
 - A child of `<Link asChild>` takes one style object, not an array.
-- Before committing: `npm run check` (typecheck, lint, tests).
+- A control with an icon and words gets an `accessibilityLabel` (otherwise
+  a screen reader reads the icon's glyph).
+- Shopify's cart warnings are handled in one place, `CartStore.settle`
+  (`src/state/cart.tsx`): empty lines out, only the remark about the lines
+  the change touched, in the basket's words.
+- Before committing: `npm run check` (typecheck, lint, tests). The tests in
+  `tests/native/` render the real screens as an iPhone and as an Android
+  phone against `fake-shop.ts`; a new screen or flow belongs there too.
 - `npm run doctor` checks the setup against the shop (token, delivery
   rules, the Blis Delivery app, sign-in). Keep it in step with what the app
   reads: a new token-only field belongs in its token check.

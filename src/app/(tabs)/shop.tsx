@@ -48,6 +48,7 @@ export default function ShopScreen() {
         <Pressable
           onPress={() => openCollection('all')}
           accessibilityRole="link"
+          accessibilityLabel="All products"
           style={({ pressed }) => [styles.all, pressed ? styles.pressed : null]}>
           <Text style={styles.allText}>All products</Text>
           <Feather name="arrow-right" size={16} color={colors.gold700} />

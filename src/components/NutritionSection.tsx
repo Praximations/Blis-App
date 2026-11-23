@@ -21,6 +21,7 @@ export function NutritionSection({ nutrition }: { nutrition: Nutrition }) {
           setOpen((on) => !on);
         }}
         accessibilityRole="button"
+        accessibilityLabel={nutrition.hasPanel ? 'Nutrition and ingredients' : 'Ingredients'}
         accessibilityState={{ expanded: open }}
         style={({ pressed }) => [styles.head, pressed ? styles.pressed : null]}>
         <Feather name="list" size={17} color={colors.gold500} />

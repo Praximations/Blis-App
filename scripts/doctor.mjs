@@ -6,34 +6,10 @@
 //
 // It only reads. Values come from the environment, then .env.local, then .env.
 
-import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { checkShop, checkToken, discoverSignIn, looksLikeClientId, readSettings, request, storefront } from './lib/shop.mjs';
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-
-function readEnvFile(name) {
-  const file = path.join(root, name);
-  if (!fs.existsSync(file)) return {};
-  const values = {};
-  for (const line of fs.readFileSync(file, 'utf8').split(/\r?\n/)) {
-    const match = /^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$/.exec(line);
-    if (!match || line.trim().startsWith('#')) continue;
-    values[match[1]] = match[2].replace(/^(['"])(.*)\1$/, '$2');
-  }
-  return values;
-}
-
-const files = { ...readEnvFile('.env'), ...readEnvFile('.env.local') };
-const env = (name, fallback = '') => (process.env[name] ?? files[name] ?? '').trim() || fallback;
-
-const domain = env('EXPO_PUBLIC_SHOPIFY_STORE_DOMAIN', 'blisfarms.com').replace(/^https?:\/\//, '').replace(/\/+$/, '');
-const version = env('EXPO_PUBLIC_SHOPIFY_API_VERSION', '2026-10');
-const token = env('EXPO_PUBLIC_SHOPIFY_STOREFRONT_TOKEN');
-const clientId = env('EXPO_PUBLIC_SHOPIFY_CUSTOMER_CLIENT_ID');
-const shopId = env('EXPO_PUBLIC_SHOPIFY_SHOP_ID', '95581405551');
-const proxyPath = env('EXPO_PUBLIC_DELIVERY_PROXY_PATH', '/apps/blis-delivery');
-const store = `https://${domain}`;
+const settings = readSettings();
+const { domain, store, token, clientId, shopId, proxyPath } = settings;
 
 const results = [];
 const say = (mark, title, detail = '', todo = '') => results.push({ mark, title, detail, todo });
@@ -41,87 +17,51 @@ const ok = (title, detail) => say('ok', title, detail);
 const warn = (title, detail, todo) => say('warn', title, detail, todo);
 const fail = (title, detail, todo) => say('fail', title, detail, todo);
 
-async function request(url, init = {}, ms = 15000) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), ms);
-  try {
-    return await fetch(url, { ...init, signal: controller.signal });
-  } catch (error) {
-    return { ok: false, status: 0, error, headers: new Headers(), json: async () => null, text: async () => '' };
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-async function storefront(query, withToken = !!token) {
-  const headers = { 'Content-Type': 'application/json', Accept: 'application/json' };
-  if (withToken) headers['X-Shopify-Storefront-Access-Token'] = token;
-  const response = await request(`${store}/api/${version}/graphql.json`, { method: 'POST', headers, body: JSON.stringify({ query }) });
-  const body = response.ok ? await response.json().catch(() => null) : null;
-  return { status: response.status, data: body?.data ?? null, errors: body?.errors ?? [] };
-}
-
 // ─── 1. The shop ────────────────────────────────────────────────────────────
 
-const shop = await storefront('{ shop { name } products(first: 250) { nodes { availableForSale } } }', false);
-if (!shop.data?.shop) {
-  fail(
-    'The shop',
-    shop.status ? `${store} answered ${shop.status}.` : `${store} can't be reached from here.`,
-    'Check EXPO_PUBLIC_SHOPIFY_STORE_DOMAIN and EXPO_PUBLIC_SHOPIFY_API_VERSION, and your connection.',
-  );
+const shop = await checkShop(settings);
+if (shop.problem) {
+  fail('The shop', shop.problem, 'Check EXPO_PUBLIC_SHOPIFY_STORE_DOMAIN and EXPO_PUBLIC_SHOPIFY_API_VERSION, and your connection.');
 } else {
-  const products = shop.data.products.nodes;
-  ok('The shop', `${shop.data.shop.name} at ${domain}: ${products.length} products, ${products.filter((p) => p.availableForSale).length} for sale.`);
+  ok('The shop', `${shop.name} at ${domain}: ${shop.products} products, ${shop.forSale} for sale.`);
 }
+const reachable = !shop.problem;
 
 // ─── 2. The Storefront token ────────────────────────────────────────────────
 
 let tokenWorks = false;
-if (!shop.data?.shop) {
+if (!reachable) {
   // Nothing more can be said about the token.
 } else if (!token) {
   warn(
     'Storefront token',
     "Not set. The app can't tell which products are \"Local delivery only\", so a basket of fresh food would reach checkout without a delivery day.",
-    'Needed before release: docs/SETUP.md, step 1. Then put it in .env.local as EXPO_PUBLIC_SHOPIFY_STOREFRONT_TOKEN.',
+    'Needed before release. The quickest way: npm run setup',
   );
 } else {
-  const check = await storefront(
-    '{ products(first: 250) { nodes { local: metafield(namespace: "custom", key: "local_delivery_only") { value } label: metafield(namespace: "custom", key: "nutrition_label") { id } } } }',
-  );
-  const denied = check.errors.find((e) => e.extensions?.code === 'ACCESS_DENIED');
-  if (!check.data && !check.errors.length) {
-    fail('Storefront token', `Shopify refused it (${check.status || 'no answer'}).`, 'Copy the public access token again from Sales channels > Headless > your storefront > Storefront API.');
-  } else if (denied) {
-    fail('Storefront token', `It works, but may not read metafields: ${denied.message}`, "In the Headless storefront's Storefront API permissions, allow product listings and metafields.");
-  } else if (check.errors.length) {
-    fail('Storefront token', check.errors[0].message, 'Copy the public access token again from Sales channels > Headless > your storefront > Storefront API.');
+  const check = await checkToken(settings, token);
+  if (check.state === 'ok') {
+    tokenWorks = true;
+    ok('Storefront token', check.detail);
+  } else if (check.state === 'refused') {
+    fail('Storefront token', check.detail, 'Copy the public access token again from Sales channels > Headless > your storefront > Storefront API (npm run setup checks it as you paste).');
+  } else if (check.state === 'no-metafields') {
+    fail('Storefront token', check.detail, "In the Headless storefront's Storefront API permissions, allow product listings and metafields.");
+  } else if (check.state === 'no-products') {
+    tokenWorks = true;
+    warn('Storefront token', check.detail, 'Publish the products to the Headless storefront: Products > select all > Include in sales channels.');
   } else {
     tokenWorks = true;
-    const nodes = check.data.products.nodes;
-    const local = nodes.filter((p) => p.local?.value === 'true').length;
-    const labels = nodes.filter((p) => p.label).length;
-    if (!nodes.length) {
-      warn('Storefront token', 'It works, but sees no products.', 'Publish the products to the Headless storefront: Products > select all > Add to sales channels.');
-    } else if (!local) {
-      warn(
-        'Storefront token',
-        `It works and sees ${nodes.length} products, but none is marked "Local delivery only".`,
-        'If fresh products should be: check they are published to the Headless storefront and that custom.local_delivery_only has Storefront access.',
-      );
-    } else {
-      ok('Storefront token', `Sees ${nodes.length} products: ${local} "Local delivery only", ${labels} with a nutrition label.`);
-    }
+    warn('Storefront token', check.detail, 'If fresh products should be: check they are published to the Headless storefront and that custom.local_delivery_only has Storefront access.');
   }
 }
 
 // ─── 3. Delivery: the rules and the Blis Delivery app ───────────────────────
 
-if (shop.data?.shop) {
+if (reachable) {
   let published = null;
   if (tokenWorks) {
-    const rules = await storefront('{ shop { metafield(namespace: "blis_delivery", key: "rules") { value } } }');
+    const rules = await storefront(settings, '{ shop { metafield(namespace: "blis_delivery", key: "rules") { value } } }');
     try {
       published = rules.data?.shop?.metafield?.value ? JSON.parse(rules.data.shop.metafield.value) : null;
     } catch {
@@ -157,21 +97,15 @@ if (shop.data?.shop) {
 
 // ─── 4. Signing in ──────────────────────────────────────────────────────────
 
-if (shop.data?.shop) {
-  const openid = await request(`${store}/.well-known/openid-configuration`);
-  const discovery = openid.ok ? await openid.json().catch(() => null) : null;
-  const realId = /\/authentication\/(\d+)/.exec(discovery?.issuer ?? '')?.[1] ?? null;
-  if (!discovery?.authorization_endpoint) {
+if (reachable) {
+  const signIn = await discoverSignIn(settings);
+  if (!signIn) {
     warn('Sign-in', "The shop's sign-in address can't be read.", 'Check that the shop uses new customer accounts (Settings > Customer accounts).');
-  } else if (realId && realId !== shopId) {
-    fail('Sign-in', `EXPO_PUBLIC_SHOPIFY_SHOP_ID is ${shopId} but this shop's id is ${realId}.`, `Set EXPO_PUBLIC_SHOPIFY_SHOP_ID=${realId}.`);
+  } else if (signIn.shopId && signIn.shopId !== shopId) {
+    fail('Sign-in', `EXPO_PUBLIC_SHOPIFY_SHOP_ID is ${shopId} but this shop's id is ${signIn.shopId}.`, `Set EXPO_PUBLIC_SHOPIFY_SHOP_ID=${signIn.shopId} (npm run setup does it).`);
   } else if (!clientId) {
-    warn(
-      'Sign-in',
-      'No client id. The Account tab opens the website instead of signing in inside the app.',
-      `docs/SETUP.md, step 2. The callback address to enter in Shopify is shop.${shopId}.app://callback`,
-    );
-  } else if (!/^[0-9a-f-]{20,}$/i.test(clientId) && !clientId.startsWith('shp_')) {
+    warn('Sign-in', 'No client id. The Account tab opens the website instead of signing in inside the app.', `npm run setup. The callback address to enter in Shopify is shop.${shopId}.app://callback`);
+  } else if (!looksLikeClientId(clientId)) {
     warn('Sign-in', "The client id doesn't look like one (Shopify's are long codes of letters, digits and dashes).", 'Copy it again from the Headless storefront > Customer Account API.');
   } else {
     ok('Sign-in', `Client id set. In Shopify the callback address must be shop.${shopId}.app://callback (sign-in itself can only be tried in a build on a phone).`);
@@ -191,6 +125,6 @@ const failed = results.some((r) => r.mark === 'fail');
 const release = !failed && tokenWorks;
 console.log('');
 console.log(failed ? 'Something above needs fixing before the app will work properly.' : 'The app will run as it is: npx expo start');
-console.log(release ? 'Ready to build for the stores (docs/SETUP.md, step 4).' : 'Not ready for the stores yet: the Storefront token comes first.');
+console.log(release ? 'Ready to build for the stores (docs/SETUP.md, part 3).' : 'Not ready for the stores yet: the Storefront token comes first (npm run setup).');
 console.log('');
 process.exit(failed ? 1 : 0);

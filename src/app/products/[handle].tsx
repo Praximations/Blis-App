@@ -12,6 +12,7 @@ import { Button, tap } from '@/components/Button';
 import { Field } from '@/components/Field';
 import { HtmlView } from '@/components/HtmlView';
 import { NutritionSection } from '@/components/NutritionSection';
+import { PhotoViewer } from '@/components/PhotoViewer';
 import { Price } from '@/components/Price';
 import { ProductRail } from '@/components/ProductRail';
 import { QuantityStepper } from '@/components/QuantityStepper';
@@ -50,7 +51,7 @@ export default function ProductScreen() {
   const shelf = useShelf();
 
   useEffect(() => {
-    if (product.data) shelf.store.viewed(product.data.handle);
+    if (product.data) shelf.store.viewed({ id: product.data.id, handle: product.data.handle });
   }, [product.data, shelf.store]);
 
   const saved = !!product.data && shelf.favourites.some((p) => p.handle === product.data!.handle);
@@ -275,6 +276,8 @@ function Details({ product }: { product: Product }) {
 function Gallery({ images, title, tint }: { images: ShopImage[]; title: string; tint: string }) {
   const { content } = useLayout();
   const [index, setIndex] = useState(0);
+  /** The photo open full screen, if any. */
+  const [viewing, setViewing] = useState<number | null>(null);
   const size = content - gutter * 2;
 
   if (!images.length) {
@@ -297,16 +300,20 @@ function Gallery({ images, title, tint }: { images: ShopImage[]; title: string; 
         data={images}
         keyExtractor={(image) => image.url}
         renderItem={({ item, index: i }) => (
-          <View style={[styles.panel, { width: size, height: size, backgroundColor: tint }]}>
+          <Pressable
+            onPress={() => setViewing(i)}
+            accessibilityRole="button"
+            accessibilityLabel={`${item.altText ?? `${title}, photo ${i + 1} of ${images.length}`}. Opens full screen.`}
+            style={[styles.panel, { width: size, height: size, backgroundColor: tint }]}>
             <Image
               source={{ uri: imageUrl(item.url, size * 2) }}
-              alt={item.altText ?? `${title}, photo ${i + 1} of ${images.length}`}
+              alt=""
               contentFit="contain"
               transition={200}
               priority={i === 0 ? 'high' : 'normal'}
               style={styles.panelPhoto}
             />
-          </View>
+          </Pressable>
         )}
         ItemSeparatorComponent={GalleryGap}
         snapToInterval={size + 10}
@@ -323,6 +330,7 @@ function Gallery({ images, title, tint }: { images: ShopImage[]; title: string; 
           ))}
         </View>
       ) : null}
+      <PhotoViewer images={images} title={title} start={viewing} onClose={() => setViewing(null)} />
     </View>
   );
 }

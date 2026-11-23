@@ -157,3 +157,22 @@ describe('parseRules', () => {
     expect(parseRules({ slots: [{ day: 'someday' }] })).toBeNull();
   });
 });
+
+describe('pickup address', () => {
+  // Imported here to keep the file's other imports as they were.
+  const { pickupAddress } = jest.requireActual('@/lib/links') as typeof import('@/lib/links');
+
+  it('finds the street in a pickup place\'s details', () => {
+    expect(pickupAddress('Swank Farmers Market', '10 am – 1 pm · 14311 North Road, Loxahatchee Groves')).toBe(
+      'Swank Farmers Market, 14311 North Road, Loxahatchee Groves',
+    );
+    expect(pickupAddress('Swank Farmers Market', '10 am – 1 pm · 14311 North Road, Loxahatchee Groves, 33470')).toBe(
+      'Swank Farmers Market, 14311 North Road, Loxahatchee Groves, 33470',
+    );
+  });
+
+  it('gives nothing when the details hold only hours, or nothing', () => {
+    expect(pickupAddress('Market', '10 am – 1 pm')).toBe('');
+    expect(pickupAddress('Market', '')).toBe('');
+  });
+});

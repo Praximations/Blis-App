@@ -188,6 +188,7 @@ export interface OrderLine {
   /** The product's name; shown when the line has no title of its own. */
   name: string;
   quantity: number;
+  productId: string | null;
   variantId: string | null;
   variantTitle: string | null;
   image: Image | null;
@@ -231,7 +232,7 @@ const CUSTOMER = /* GraphQL */ `
 
 // Two versions: the full one, and one with only the fields every version
 // of the API has had, used if Shopify refuses the first.
-const ORDER_LINES = `lineItems(first: 50) { nodes { id title name quantity variantId variantTitle image { url altText width height } totalPrice { ${MONEY} } } }`;
+const ORDER_LINES = `lineItems(first: 50) { nodes { id title name quantity productId variantId variantTitle image { url altText width height } totalPrice { ${MONEY} } } }`;
 const ORDER_FULL = `
   id name number processedAt cancelledAt financialStatus fulfillmentStatus statusPageUrl
   totalPrice { ${MONEY} } subtotal { ${MONEY} } totalShipping { ${MONEY} } totalTax { ${MONEY} }
@@ -294,6 +295,18 @@ export async function getOrders(session: Session, after: string | null = null): 
 export async function getOrder(session: Session, id: string): Promise<Order | null> {
   const data = await withFallback<{ order: Order | null }>(session, orderQuery, { id });
   return data.order;
+}
+
+/** The products of these orders, most recently bought first, each once. */
+export function boughtProductIds(orders: Pick<Order, 'lineItems'>[], limit = 12): string[] {
+  const ids: string[] = [];
+  for (const order of orders) {
+    for (const line of order.lineItems.nodes) {
+      if (line.productId && !ids.includes(line.productId)) ids.push(line.productId);
+      if (ids.length >= limit) return ids;
+    }
+  }
+  return ids;
 }
 
 /** "Being prepared", "Fulfilled"…: an order's state in a word or two. */

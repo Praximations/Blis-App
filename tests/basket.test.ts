@@ -48,6 +48,9 @@ describe('what the basket means for delivery', () => {
   it('lists the lines for the delivery app', () => {
     expect(lineRefs(cart)).toBe('11:21:2,12:22:1,13:23:1');
     expect(lineRefs(null)).toBe('');
+    // A line of quantity 0 (left by a sold-out product) is not in the basket.
+    expect(lineRefs(cartWith([line({ productId: '11', variantId: '21', quantity: 0, localOnly: true })]))).toBe('');
+    expect(localOnlyLines(cartWith([line({ quantity: 0, localOnly: true })]))).toEqual([]);
   });
 
   it('knows what cannot be shipped, from the metafield or the tag', () => {

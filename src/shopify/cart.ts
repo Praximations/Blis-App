@@ -17,12 +17,29 @@ export interface AttributeInput {
   value: string;
 }
 
-type Payload = { cart: Cart | null; userErrors: UserError[] };
+/**
+ * Shopify's remark on a change that went through differently than asked:
+ * MERCHANDISE_OUT_OF_STOCK (nothing went in), MERCHANDISE_NOT_ENOUGH_STOCK
+ * (fewer went in). `target` is the cart line it is about.
+ */
+export interface CartWarning {
+  code: string;
+  message: string;
+  target: string | null;
+}
+
+type Payload = { cart: Cart | null; userErrors: UserError[]; warnings?: CartWarning[] | null };
+
+const warnings = new WeakMap<Cart, CartWarning[]>();
+
+/** The remarks that came with this cart (none for a cart that was only read). */
+export const warningsFor = (cart: Cart | null | undefined): CartWarning[] => (cart && warnings.get(cart)) || [];
 
 function unwrap(payload: Payload | null | undefined): Cart {
   const error = payload?.userErrors?.[0];
   if (error) throw new StorefrontError(error.message, 200, error.code ?? 'USER_ERROR');
   if (!payload?.cart) throw new StorefrontError("The basket couldn't be updated. Please try again.");
+  if (payload.warnings?.length) warnings.set(payload.cart, payload.warnings);
   return payload.cart;
 }
 

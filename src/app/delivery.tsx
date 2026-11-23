@@ -11,7 +11,7 @@ import { Text } from '@/components/Text';
 import { TopBar } from '@/components/TopBar';
 import { capitalize, clockText, isPickup, sentenceList, upcoming } from '@/delivery/days';
 import type { Slot } from '@/delivery/types';
-import { openWeb } from '@/lib/links';
+import { openMaps, openWeb, pickupAddress } from '@/lib/links';
 import { useDelivery } from '@/state/delivery';
 import { colors, fonts, gutter, maxWidth, radius } from '@/theme/tokens';
 
@@ -86,9 +86,21 @@ export default function DeliveryScreen() {
                   </Text>
                   <Text variant="bodySmall">{orderBy(slot)}</Text>
                   {isPickup(slot) ? (
-                    <Text variant="bodySmall">
-                      Pickup at {[slot.location, slot.details].filter(Boolean).join(', ')}. Open to everyone.
-                    </Text>
+                    <>
+                      <Text variant="bodySmall">
+                        Pickup at {[slot.location, slot.details].filter(Boolean).join(', ')}. Open to everyone.
+                      </Text>
+                      {pickupAddress(slot.location, slot.details) ? (
+                        <Button
+                          label="Directions"
+                          icon="navigation"
+                          size="sm"
+                          variant="ghost"
+                          onPress={() => void openMaps(pickupAddress(slot.location, slot.details))}
+                          style={styles.directions}
+                        />
+                      ) : null}
+                    </>
                   ) : (
                     <Text variant="bodySmall">Delivery areas: {sentenceList(slot.areas)}.</Text>
                   )}
@@ -144,4 +156,5 @@ const styles = StyleSheet.create({
   dayWords: { flex: 1, gap: 2 },
   dayTitle: { fontFamily: fonts.label, fontSize: 15, lineHeight: 21, color: colors.ink900 },
   area: { gap: 2 },
+  directions: { marginLeft: -8, minHeight: 34 },
 });

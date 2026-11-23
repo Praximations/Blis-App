@@ -23,7 +23,8 @@ export function isLocalOnly(product: LocalOnlyProduct | null | undefined): boole
   return product.tags.some((tag) => tag.toLowerCase().trim() === LOCAL_ONLY_TAG);
 }
 
-const lines = (cart: Cart | null) => cart?.lines.nodes ?? [];
+// (A line of quantity 0 is what a sold-out product leaves behind; it is not in the basket.)
+const lines = (cart: Cart | null) => (cart?.lines.nodes ?? []).filter((line) => line.quantity > 0);
 
 export const localOnlyLines = (cart: Cart | null): CartLine[] =>
   lines(cart).filter((line) => isLocalOnly(line.merchandise.product));
@@ -97,14 +98,14 @@ export const DELIVERY_ATTRIBUTES = [
 export function deliveryAttributes(
   day: DeliveryDay | null,
   choice: Pick<DeliveryChoice, 'area' | 'zip'>,
-  window: TimeWindow | null,
+  slot: TimeWindow | null,
   hold: string | null,
 ): Record<string, string> {
   const pickup = !!day && day.pickup;
   return {
     'Delivery date': day ? day.iso : '',
     'Delivery day': day ? day.label : '',
-    'Delivery time': day && window ? window.label : '',
+    'Delivery time': day && slot ? slot.label : '',
     'Delivery method': day ? (pickup ? `Pickup${day.location ? ` at ${day.location}` : ''}` : 'Local delivery') : '',
     'Delivery area': day && !pickup ? (choice.area ?? '') : '',
     'Delivery ZIP': day && !pickup ? (choice.zip ?? '') : '',
@@ -115,7 +116,7 @@ export function deliveryAttributes(
     _blis_date: day ? day.iso : '',
     _blis_zip: day && !pickup ? (choice.zip ?? '') : '',
     _blis_location: pickup ? day.locationId || day.location : '',
-    _blis_slot: day && window ? window.key : '',
+    _blis_slot: day && slot ? slot.key : '',
     _blis_hold: day ? (hold ?? '') : '',
   };
 }

@@ -28,7 +28,7 @@ export function SectionHeader({
         </Text>
       </View>
       {action ? (
-        <Pressable onPress={onAction} hitSlop={10} accessibilityRole="link" style={styles.action}>
+        <Pressable onPress={onAction} hitSlop={10} accessibilityRole="link" accessibilityLabel={`${action}: ${title}`} style={styles.action}>
           <Text style={styles.actionText}>{action}</Text>
           <Feather name="arrow-right" size={14} color={colors.gold700} />
         </Pressable>

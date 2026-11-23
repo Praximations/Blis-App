@@ -15,7 +15,7 @@ import { Text } from '@/components/Text';
 import { config } from '@/config';
 import { shopClock } from '@/delivery/days';
 import { openWeb } from '@/lib/links';
-import { getCollection, getRecommendations } from '@/shopify/catalog';
+import { getCollection, getProductsById, getRecommendations } from '@/shopify/catalog';
 import { getSections, type Section } from '@/shopify/sections';
 import { imageUrl } from '@/shopify/storefront';
 import { useShelf } from '@/state/shelf';
@@ -37,7 +37,7 @@ export default function HomeScreen() {
 
   const sections = useQuery({ queryKey: ['sections'], queryFn: getSections });
   // "Recommended for you": what goes with the last product looked at, or the best sellers.
-  const lastSeen = shelf.recent[0] ?? null;
+  const lastSeen = shelf.recent[0]?.handle ?? null;
   const recommended = useQuery({
     queryKey: ['home-recommended', lastSeen],
     queryFn: async () => {
@@ -46,6 +46,14 @@ export default function HomeScreen() {
       return (await getCollection({ handle: 'all', sort: 'best-selling', first: 10 }))?.products.nodes ?? [];
     },
     enabled: shelf.ready,
+  });
+  // What was looked at lately, apart from the last one (it is the page just left).
+  const viewedIds = shelf.recent.slice(0, 10).map((v) => v.id);
+  const viewed = useQuery({
+    queryKey: ['home-viewed', viewedIds.join(',')],
+    queryFn: () => getProductsById(viewedIds),
+    enabled: shelf.ready && viewedIds.length >= 2,
+    placeholderData: (previous) => previous,
   });
   const meats = useQuery({
     queryKey: ['home-meats'],
@@ -109,6 +117,13 @@ export default function HomeScreen() {
           <View style={styles.block}>
             <SectionHeader title="Recommended for you" />
             <ProductRail products={recommended.data} />
+          </View>
+        ) : null}
+
+        {viewedIds.length >= 2 && viewed.data?.length ? (
+          <View style={styles.block}>
+            <SectionHeader title="Recently viewed" />
+            <ProductRail products={viewed.data} />
           </View>
         ) : null}
 

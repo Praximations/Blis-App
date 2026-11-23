@@ -281,7 +281,9 @@ export const CART = /* GraphQL */ `
   }
 `;
 
-const USER_ERRORS = `userErrors { field message code }`;
+// Errors stop a change; warnings come with one that went through differently
+// (sold out, or fewer in stock than asked for).
+const USER_ERRORS = `userErrors { field message code } warnings { code message target }`;
 
 export const CART_QUERY = /* GraphQL */ `
   ${CART}

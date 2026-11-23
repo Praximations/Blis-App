@@ -17,14 +17,14 @@ products, the same basket rules for delivery and pickup, the same checkout.
 
 | Screen | What it does |
 |---|---|
-| Home | The website's home page: hero, sections, "Recommended for you", olive oil, beef, our story. |
+| Home | The website's home page: hero, sections, "Recommended for you", "Recently viewed", olive oil, beef, our story. |
 | Shop | Every part of the shop, from the store's own `shop-sections` menu, with "Coming soon" for the empty ones. |
 | Section (`/collections/…`) | Products two across, categories as chips, sort, "In stock". |
-| Product (`/products/…`) | Photos, sizes, price, add to basket, description, "Nutrition and ingredients" (the label's Nutrition Facts panel, ingredients, allergens), "You may also like". Fresh food shows where and when we deliver. |
+| Product (`/products/…`) | Photos (tap for full screen), sizes, price, add to basket, description, "Nutrition and ingredients" (the label's Nutrition Facts panel, ingredients, allergens), "You may also like". Fresh food shows where and when we deliver. |
 | Search | Suggestions while typing, results, recent searches. |
-| Basket | Lines, quantities, discount code, the delivery card (Delivery / Pickup, ZIP check, day, time window), checkout. |
-| Account | Sign in with a one-time code, orders, "Order again", "Follow your driver", favourites, help and policies, "Delete my account". |
-| Delivery & pickup | The week's days, order-by times, areas and ZIP codes, from the same rules the basket uses. |
+| Basket | Lines, quantities, discount code, the delivery card (Delivery / Pickup, ZIP check, day, time window), checkout. Says so when something sold out or the shop has fewer than asked for. |
+| Account | Sign in with a one-time code, orders, "Order again", "Buy again", "Follow your driver", favourites, help and policies, "Delete my account". |
+| Delivery & pickup | The week's days, order-by times, areas and ZIP codes, from the same rules the basket uses; directions to the pickup place. |
 
 Checkout is Shopify's own, opened in the phone's browser sheet, so Apple
 Pay, Shop Pay and saved cards work as on the website. When the customer
@@ -45,15 +45,20 @@ scan the code with Expo Go on a phone. It works against the live shop as it
 is, without any setup: browsing, search and the basket need no key.
 
 **Setting it up for real** (Shopify admin, building, the app stores) is in
-[docs/SETUP.md](docs/SETUP.md), step by step. At any point this says what is
-on and what is still missing:
+[docs/SETUP.md](docs/SETUP.md), step by step. Two commands do most of it:
+
+```bash
+npm run setup
+```
+
+asks for the two values from the Shopify admin, checks each against the shop
+as you paste it and saves them to `.env`;
 
 ```bash
 npm run doctor
 ```
 
-Copy `.env.example` to `.env` to add the two things that need the Shopify
-admin:
+says what is on and what is still missing, at any time. The two values:
 
 | Variable | What it turns on |
 |---|---|
@@ -71,10 +76,16 @@ also tells it).
 npm run check
 ```
 
-That runs the typecheck, the linter and the tests (`tests/`): delivery days
-and cut-offs, ZIP and town matching, the cart attributes, the delivery
-choice with and without the Blis Delivery app, the basket, nutrition labels
-and the small helpers.
+That runs the typecheck, the linter and the tests (`tests/`):
+
+- **unit**: delivery days and cut-offs, ZIP and town matching, the cart
+  attributes, the delivery choice with and without the Blis Delivery app,
+  the basket (sold out, short stock, order of changes), the sign-in session
+  (renewal, expiry), nutrition labels and the small helpers;
+- **iphone** and **android** (`tests/native/`): the real screens, rendered
+  as a phone renders them, walking from Home to a product, the basket and a
+  delivery day against a stand-in for Shopify (`fake-shop.ts`). They catch
+  what a browser forgives.
 
 The web version builds with `npm run build:web` into `dist/`; `vercel.json`
 lets Vercel do that from the repository for a link to share.
@@ -97,6 +108,7 @@ src/
   lib/           money, HTML, links, storage
   config.ts      which store (EXPO_PUBLIC_* variables)
 tests/
+scripts/setup.mjs    guided setup (npm run setup)
 scripts/doctor.mjs   "is it set up?" (npm run doctor)
 app.json, app.config.js   name, icon, identifiers; the sign-in address from the shop id
 docs/SETUP.md    Shopify admin, building and releasing
@@ -137,6 +149,10 @@ docs/SETUP.md    Shopify admin, building and releasing
   says so.
 - A screen that fails shows "Something went wrong" with a way to try again,
   not a blank page.
+- When a product sells out between the page and the basket, Shopify leaves
+  a line of quantity 0 and keeps remarking on it. The app takes that line
+  out and says, once, what happened ("Raw Milk is sold out.", "Only 3 of
+  Raw Milk are available.").
 
 ## Fonts and pictures
 

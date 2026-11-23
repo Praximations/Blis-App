@@ -190,7 +190,7 @@ export default function SearchScreen() {
                   onPress={() => router.push({ pathname: '/products/[handle]', params: { handle: item.handle } })}
                 />
               ))}
-              <Pressable onPress={() => search(text)} accessibilityRole="button" style={styles.seeAll}>
+              <Pressable onPress={() => search(text)} accessibilityRole="button" accessibilityLabel={`See all results for ${text.trim()}`} style={styles.seeAll}>
                 <Text style={styles.seeAllText}>See all results for “{text.trim()}”</Text>
                 <Feather name="arrow-right" size={14} color={colors.gold700} />
               </Pressable>
@@ -253,7 +253,11 @@ function Row({
   onPress: () => void;
 }) {
   return (
-    <Pressable onPress={onPress} accessibilityRole="link" style={({ pressed }) => [styles.row, pressed ? styles.rowPressed : null]}>
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="link"
+      accessibilityLabel={[title, detail].filter(Boolean).join(', ')}
+      style={({ pressed }) => [styles.row, pressed ? styles.rowPressed : null]}>
       <View style={styles.rowIcon}>
         {image ? (
           <Image source={{ uri: imageUrl(image, 120) }} alt="" contentFit="contain" style={styles.rowImage} />

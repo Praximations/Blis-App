@@ -2,7 +2,7 @@
 
 import Feather from '@expo/vector-icons/Feather';
 import { useState } from 'react';
-import { StyleSheet, TextInput, View, type TextInputProps } from 'react-native';
+import { Platform, StyleSheet, TextInput, View, type TextInputProps } from 'react-native';
 
 import { colors, fonts, radius } from '@/theme/tokens';
 
@@ -31,7 +31,7 @@ export function Field({ icon, pill, label, style, onFocus, onBlur, ...rest }: Fi
           setFocused(false);
           onBlur?.(event);
         }}
-        style={styles.input}
+        style={[styles.input, webOnly]}
       />
     </View>
   );
@@ -59,6 +59,8 @@ const styles = StyleSheet.create({
     fontFamily: fonts.text,
     fontSize: 16,
     color: colors.ink900,
-    outlineStyle: 'none',
-  } as never,
+  },
 });
+
+// A browser draws its own ring around a focused field; the box shows focus instead.
+const webOnly = Platform.OS === 'web' ? ({ outlineStyle: 'none' } as never) : null;

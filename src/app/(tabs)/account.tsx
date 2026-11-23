@@ -2,7 +2,7 @@
 // days, the story, help and the small print).
 
 import Feather from '@expo/vector-icons/Feather';
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import Constants from 'expo-constants';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
@@ -10,12 +10,14 @@ import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-n
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/Button';
+import { ProductRail } from '@/components/ProductRail';
 import { Text } from '@/components/Text';
 import { config } from '@/config';
 import { orderDate } from '@/lib/dates';
 import { openWeb } from '@/lib/links';
 import { formatMoney } from '@/lib/money';
-import { getOrders, orderStatus, type Order } from '@/shopify/customer';
+import { getProductsById } from '@/shopify/catalog';
+import { boughtProductIds, getOrders, orderStatus, type Order } from '@/shopify/customer';
 import { useAuth } from '@/state/auth';
 import { useShelf } from '@/state/shelf';
 import { logoStacked } from '@/theme/photos';
@@ -40,6 +42,14 @@ export default function AccountScreen() {
     enabled: auth.signedIn,
   });
   const list = orders.data?.pages.flatMap((page) => page.nodes) ?? [];
+  // "Buy again": what the last orders held, read fresh so prices and "sold out" are today's.
+  const boughtIds = boughtProductIds(list);
+  const bought = useQuery({
+    queryKey: ['buy-again', boughtIds.join(',')],
+    queryFn: () => getProductsById(boughtIds),
+    enabled: auth.signedIn && boughtIds.length > 0,
+    placeholderData: (previous) => previous,
+  });
 
   return (
     <ScrollView
@@ -123,6 +133,15 @@ export default function AccountScreen() {
             {auth.error ? <Text style={styles.error}>{auth.error}</Text> : null}
           </View>
         )}
+
+        {auth.signedIn && bought.data?.length ? (
+          <View style={styles.group}>
+            <Text variant="eyebrow">Buy again</Text>
+            <View style={styles.rail}>
+              <ProductRail products={bought.data} />
+            </View>
+          </View>
+        ) : null}
 
         <View style={styles.group}>
           <Text variant="eyebrow">Shopping</Text>
@@ -208,7 +227,12 @@ function Row({
   onPress: () => void;
 }) {
   return (
-    <Pressable onPress={onPress} accessibilityRole="link" style={({ pressed }) => [styles.row, pressed ? styles.pressed : null]}>
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="link"
+      accessibilityLabel={[title, detail].filter(Boolean).join(', ')}
+      accessibilityHint={external ? 'Opens the website' : undefined}
+      style={({ pressed }) => [styles.row, pressed ? styles.pressed : null]}>
       {icon ? <Feather name={icon} size={18} color={colors.gold500} /> : null}
       <Text style={styles.rowTitle}>{title}</Text>
       {detail ? (
@@ -259,5 +283,7 @@ const styles = StyleSheet.create({
   orderName: { fontFamily: fonts.label, fontSize: 15, color: colors.ink900 },
   orderRight: { alignItems: 'flex-end', gap: 2 },
   leave: { gap: 6 },
+  // The rail runs to the screen's edges; its own padding puts the first card back in line.
+  rail: { marginHorizontal: -gutter },
   delete: { alignSelf: 'center' },
 });

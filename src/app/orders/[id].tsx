@@ -113,7 +113,7 @@ export default function OrderScreen() {
 
             {order.shippingAddress?.formatted.length ? (
               <View style={styles.address}>
-                <Text variant="eyebrow">Delivered to</Text>
+                <Text variant="eyebrow">Delivery address</Text>
                 <Text>{order.shippingAddress.formatted.join('\n')}</Text>
               </View>
             ) : null}

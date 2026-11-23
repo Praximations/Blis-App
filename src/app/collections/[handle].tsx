@@ -78,6 +78,7 @@ export default function CollectionScreen() {
           <Pressable
             onPress={() => setInStock((on) => !on)}
             accessibilityRole="switch"
+            accessibilityLabel="In stock only"
             accessibilityState={{ checked: inStock }}
             style={[styles.tool, inStock ? styles.toolOn : null]}>
             <Feather name={inStock ? 'check-circle' : 'circle'} size={14} color={colors.gold700} />
@@ -143,6 +144,7 @@ export default function CollectionScreen() {
                   setSorting(false);
                 }}
                 accessibilityRole="menuitem"
+                accessibilityLabel={option.label}
                 accessibilityState={{ selected: option.id === sort }}
                 style={({ pressed }) => [styles.sortRow, pressed ? styles.sortPressed : null]}>
                 <Text style={[styles.sortText, option.id === sort ? styles.sortTextOn : null]}>{option.label}</Text>

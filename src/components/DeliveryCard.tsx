@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
 import { useFollowing } from '@/lib/hooks';
+import { openMaps, pickupAddress } from '@/lib/links';
 import { useDelivery } from '@/state/delivery';
 import { colors, fonts, radius } from '@/theme/tokens';
 
@@ -53,6 +54,7 @@ export function DeliveryCard() {
                   store.chooseMethod(method);
                 }}
                 accessibilityRole="radio"
+                accessibilityLabel={method === 'delivery' ? 'Delivery' : 'Pickup'}
                 accessibilityState={{ selected: on }}
                 style={[styles.option, on ? styles.optionOn : null]}>
                 <Feather name={method === 'delivery' ? 'truck' : 'map-pin'} size={15} color={on ? colors.gold500 : colors.ink600} />
@@ -74,6 +76,15 @@ export function DeliveryCard() {
             <Text style={styles.title}>{d.pickupPlace?.name ?? 'Pickup'}</Text>
             <Text style={styles.sub}>{[d.pickupDays, d.pickupPlace?.details].filter(Boolean).join(', ')}</Text>
           </View>
+          {d.pickupPlace && pickupAddress(d.pickupPlace.name, d.pickupPlace.details) ? (
+            <Pressable
+              onPress={() => void openMaps(pickupAddress(d.pickupPlace!.name, d.pickupPlace!.details))}
+              hitSlop={10}
+              accessibilityRole="link"
+              accessibilityLabel={`Directions to ${d.pickupPlace.name}`}>
+              <Text style={styles.change}>Directions</Text>
+            </Pressable>
+          ) : null}
         </View>
       ) : (
         <>
@@ -180,19 +191,20 @@ export function DeliveryCard() {
 
       {d.day?.windows.length ? (
         <View style={styles.windows} accessibilityRole="radiogroup" accessibilityLabel="Time">
-          {d.day.windows.map((window) => {
-            const on = window.key === choice.window;
+          {d.day.windows.map((slot) => {
+            const on = slot.key === choice.window;
             return (
               <Pressable
-                key={window.key}
+                key={slot.key}
                 onPress={() => {
                   tap();
-                  store.chooseWindow(window.key);
+                  store.chooseWindow(slot.key);
                 }}
                 accessibilityRole="radio"
+                accessibilityLabel={slot.label}
                 accessibilityState={{ selected: on }}
                 style={[styles.window, on ? styles.windowOn : null]}>
-                <Text style={[styles.windowText, on ? styles.windowTextOn : null]}>{window.label}</Text>
+                <Text style={[styles.windowText, on ? styles.windowTextOn : null]}>{slot.label}</Text>
               </Pressable>
             );
           })}

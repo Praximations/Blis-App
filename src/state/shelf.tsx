@@ -17,11 +17,16 @@ export interface SavedProduct {
   price: Money;
 }
 
+export interface Viewed {
+  id: string;
+  handle: string;
+}
+
 export interface ShelfState {
   ready: boolean;
   favourites: SavedProduct[];
-  /** Handles, most recent first. */
-  recent: string[];
+  /** Products looked at, most recent first. */
+  recent: Viewed[];
   searches: string[];
 }
 
@@ -52,13 +57,16 @@ export class ShelfStore {
     void (async () => {
       const [favourites, recent, searches] = await Promise.all([
         readJSON<SavedProduct[]>(keys.favourites),
-        readJSON<string[]>(keys.recent),
+        readJSON<unknown[]>(keys.recent),
         readJSON<string[]>(keys.searches),
       ]);
       this.set({
         ready: true,
         favourites: Array.isArray(favourites) ? favourites.filter((p) => p && typeof p.handle === 'string') : [],
-        recent: Array.isArray(recent) ? recent.filter((h) => typeof h === 'string') : [],
+        // (An earlier version kept bare handles; those are dropped.)
+        recent: Array.isArray(recent)
+          ? recent.filter((v): v is Viewed => !!v && typeof v === 'object' && typeof (v as Viewed).id === 'string' && typeof (v as Viewed).handle === 'string')
+          : [],
         searches: Array.isArray(searches) ? searches.filter((q) => typeof q === 'string') : [],
       });
     })();
@@ -79,8 +87,9 @@ export class ShelfStore {
     return !saved;
   }
 
-  viewed(handle: string) {
-    const recent = [handle, ...this.state.recent.filter((h) => h !== handle)].slice(0, 20);
+  viewed(product: Viewed) {
+    if (this.state.recent[0]?.handle === product.handle) return;
+    const recent = [{ id: product.id, handle: product.handle }, ...this.state.recent.filter((v) => v.handle !== product.handle)].slice(0, 20);
     this.set({ recent });
     void writeJSON(keys.recent, recent);
   }
