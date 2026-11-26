@@ -30,6 +30,8 @@ export function readSettings(overrides = {}) {
     version: env('EXPO_PUBLIC_SHOPIFY_API_VERSION', '2026-10'),
     token: env('EXPO_PUBLIC_SHOPIFY_STOREFRONT_TOKEN'),
     clientId: env('EXPO_PUBLIC_SHOPIFY_CUSTOMER_CLIENT_ID'),
+    /** required | optional | off; empty means required on phones, optional on the web. */
+    signInFirst: env('EXPO_PUBLIC_SIGN_IN_FIRST').toLowerCase(),
     shopId: env('EXPO_PUBLIC_SHOPIFY_SHOP_ID', '95581405551'),
     proxyPath: env('EXPO_PUBLIC_DELIVERY_PROXY_PATH', '/apps/blis-delivery'),
   };

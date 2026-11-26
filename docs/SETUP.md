@@ -50,9 +50,11 @@ npx expo start
 ```
 
 A QR code appears. Scan it with the iPhone camera, or from inside Expo Go on
-Android (phone and computer on the same Wi-Fi). The app opens against the
-live shop: you can browse, search, fill a basket and reach Shopify's
-checkout. Nothing needs setting up for this.
+Android (phone and computer on the same Wi-Fi). The app opens on its sign-in
+page. Signing in needs part 2 and a real build, so for now tap **Continue
+without signing in (development only)** at the bottom (a button customers
+never see). Behind it is the live shop: you can browse, search, fill a
+basket and reach Shopify's checkout. Nothing needs setting up for this.
 
 To see it in a browser instead, press `w` in that terminal.
 
@@ -104,6 +106,32 @@ The shop uses Shopify's new customer accounts (a one-time code by email).
 
 Signing in can't be tried in Expo Go (it can't answer to the `shop.…app`
 address). It works in a build, which is the next part.
+
+**From the moment the client id is saved, the app opens on the sign-in
+page** and nobody gets into the shop without signing in or creating an
+account. (Until then it opens on Home: without a client id there would be
+no way in.) To loosen that, add one line to `.env`:
+
+| Line | What happens |
+|---|---|
+| `EXPO_PUBLIC_SIGN_IN_FIRST=required` | Sign-in or a new account before anything else, on the web link too. |
+| `EXPO_PUBLIC_SIGN_IN_FIRST=optional` | The page comes first, with a "Look around first" button. |
+| `EXPO_PUBLIC_SIGN_IN_FIRST=off` | The app opens on Home; sign-in waits under Account. |
+| *(no line)* | Required on phones; the web link keeps "Look around first". |
+
+**The web link (Vercel) and sign-in.** A browser comes back to a web
+address, not to `shop.…app`, so signing in on the web link only works once
+that address is entered in Shopify too. In the same Customer Account API
+screen add, for a link `https://your-link.vercel.app`:
+
+- Callback URI: `https://your-link.vercel.app/account`
+- JavaScript origin: `https://your-link.vercel.app`
+- Logout URI: `https://your-link.vercel.app/account`
+
+That is why the web link keeps its "Look around first" button unless you
+write `required` yourself: a link nobody can get past is no use. If Shopify
+doesn't offer those three fields for the client you made (they belong to
+its web kind of Public client), leave the web link as it is.
 
 ### What it saved
 
@@ -171,7 +199,10 @@ npx eas-cli@latest env:create --environment preview --name EXPO_PUBLIC_SHOPIFY_S
 **Try these once on a real phone before releasing.** They can only be tried
 in a build, with a real account:
 
-1. Sign in, see your orders, open one, "Order again".
+1. Open the app for the first time: the sign-in page. Create an account
+   with an email address of your own (the code arrives by email), then
+   under Account see your orders, open one, "Order again". Sign out: the
+   page is back, with "Welcome back" and your email address filled in.
 2. A basket with a fresh product: ZIP check, day, checkout. Place a test
    order and check that the order in the Shopify admin shows the delivery
    details, and `_source: Blis Farms app` under Additional details.
@@ -197,9 +228,15 @@ screenshots from the preview build, the privacy policy link
 `https://blisfarms.com/policies/privacy-policy`) and send it for review.
 Three things reviewers ask of a shop app:
 
-- **A way in.** Sign-in is a code by email, so give them a test account's
-  email address and tell them the code arrives there (or arrange to forward
-  it).
+- **A way in.** The app opens on the sign-in page and sign-in is a code by
+  email, so the reviewer can't get past it alone: in App Store Connect's
+  review notes give a test account's email address and say that the code
+  arrives there (use a mailbox you can forward from, or that they can
+  read). Apple also sometimes turns down shop apps that demand an account
+  before browsing ("let people use it without a login" unless the account
+  is essential). If that is the answer you get, put
+  `EXPO_PUBLIC_SIGN_IN_FIRST=optional` in `.env`, build and submit again:
+  the page still comes first, with a "Look around first" button under it.
 - **Account deletion.** It is in the app: Account → Delete my account, which
   sends you the request by email. Erase the customer in the Shopify admin
   when one arrives (Customers → the customer → More actions → Erase personal

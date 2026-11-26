@@ -14,6 +14,10 @@ export const keys = {
   searches: 'blis.searches.v1',
   rules: 'blis.rules.v1',
   session: 'blis.session.v1',
+  /** Who signed in here last (first name and email), for "Welcome back". */
+  known: 'blis.known.v1',
+  /** Came in without signing in. */
+  guest: 'blis.guest.v1',
 } as const;
 
 export async function readJSON<T>(key: string): Promise<T | null> {

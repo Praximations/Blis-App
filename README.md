@@ -17,13 +17,14 @@ products, the same basket rules for delivery and pickup, the same checkout.
 
 | Screen | What it does |
 |---|---|
+| Sign-in page (`/welcome`) | The first thing the app shows: "Create your free account" or, for someone who has signed in on this phone before, "Welcome back". An email address and one button; Shopify emails a 6-digit code. Nobody gets into the shop without it (see [Sign-in first](#sign-in-first)). |
 | Home | The website's home page: hero, sections, "Recommended for you", "Recently viewed", olive oil, beef, our story. |
 | Shop | Every part of the shop, from the store's own `shop-sections` menu, with "Coming soon" for the empty ones. |
 | Section (`/collections/…`) | Products two across, categories as chips, sort, "In stock". |
 | Product (`/products/…`) | Photos (tap for full screen), sizes, price, add to basket, description, "Nutrition and ingredients" (the label's Nutrition Facts panel, ingredients, allergens), "You may also like". Fresh food shows where and when we deliver. |
 | Search | Suggestions while typing, results, recent searches. |
 | Basket | Lines, quantities, discount code, the delivery card (Delivery / Pickup, ZIP check, day, time window), checkout. Says so when something sold out or the shop has fewer than asked for. |
-| Account | Sign in with a one-time code, orders, "Order again", "Buy again", "Follow your driver", favourites, help and policies, "Delete my account". |
+| Account | Who is signed in, orders, "Order again", "Buy again", "Follow your driver", favourites, help and policies, "Delete my account". |
 | Delivery & pickup | The week's days, order-by times, areas and ZIP codes, from the same rules the basket uses; directions to the pickup place. |
 
 Checkout is Shopify's own, opened in the phone's browser sheet, so Apple
@@ -41,8 +42,10 @@ npx expo start
 ```
 
 Then press `w` for the web, `i` for the iOS simulator or `a` for Android, or
-scan the code with Expo Go on a phone. It works against the live shop as it
-is, without any setup: browsing, search and the basket need no key.
+scan the code with Expo Go on a phone. It opens on the sign-in page; while
+developing, "Continue without signing in (development only)" at its foot
+lets you in. Behind it the app works against the live shop as it is,
+without any setup: browsing, search and the basket need no key.
 
 **Setting it up for real** (Shopify admin, building, the app stores) is in
 [docs/SETUP.md](docs/SETUP.md), step by step. Two commands do most of it:
@@ -63,12 +66,38 @@ says what is on and what is still missing, at any time. The two values:
 | Variable | What it turns on |
 |---|---|
 | `EXPO_PUBLIC_SHOPIFY_STOREFRONT_TOKEN` | "Local delivery only" (the basket then asks for a delivery day), nutrition labels, the product photo tints and mood photos, and the delivery rules the Blis Delivery app publishes. |
-| `EXPO_PUBLIC_SHOPIFY_CUSTOMER_CLIENT_ID` | Signing in inside the app. Without it the Account tab opens the website. |
+| `EXPO_PUBLIC_SHOPIFY_CUSTOMER_CLIENT_ID` | Signing in inside the app, and with it the sign-in page that comes first. Without it the app opens on Home and the Account tab opens the website. |
 
 **The Storefront token is needed before release.** Without it the app can't
 tell which products can't be shipped, so a basket of fresh food would go to
 checkout without a delivery day (unless the Blis Delivery app is live, which
 also tells it).
+
+## Sign-in first
+
+Once the client id is set, the app opens on the sign-in page and the shop
+stays closed until the customer has signed in or created an account (the
+same step: an email address, then a 6-digit code from Shopify). After that
+the app opens straight on Home; signing out leads back to the page, which
+then says "Welcome back" with the email address filled in.
+
+One setting, `EXPO_PUBLIC_SIGN_IN_FIRST` in `.env`, decides how firm that is:
+
+| Value | What happens |
+|---|---|
+| `required` | Nobody gets in without signing in or creating an account. |
+| `optional` | The page still comes first, with a "Look around first" button. Account leads back to it; signing out leaves you in the shop. |
+| `off` | The app opens on Home; "Sign in or create account" waits under Account. |
+| *(empty)* | `required` on phones, `optional` on the web link (sign-in in a browser needs its own addresses in Shopify; see [docs/SETUP.md](docs/SETUP.md)). |
+
+Two things it never does: lock customers out of a build that has no client
+id (there would be no way in), and lock you out while developing (Expo Go
+can't finish Shopify's sign-in, so the page there has a "Continue without
+signing in (development only)" button that customers never see).
+
+Apple sometimes turns down shop apps that demand an account before
+browsing; if that happens, `optional` is the answer and needs no other
+change. More in [docs/SETUP.md](docs/SETUP.md), part 4.
 
 ## Check it
 
@@ -81,11 +110,13 @@ That runs the typecheck, the linter and the tests (`tests/`):
 - **unit**: delivery days and cut-offs, ZIP and town matching, the cart
   attributes, the delivery choice with and without the Blis Delivery app,
   the basket (sold out, short stock, order of changes), the sign-in session
-  (renewal, expiry), nutrition labels and the small helpers;
+  (renewal, expiry, who was here before), when the sign-in page comes first,
+  nutrition labels and the small helpers;
 - **iphone** and **android** (`tests/native/`): the real screens, rendered
-  as a phone renders them, walking from Home to a product, the basket and a
-  delivery day against a stand-in for Shopify (`fake-shop.ts`). They catch
-  what a browser forgives.
+  as a phone renders them, against a stand-in for Shopify (`fake-shop.ts`):
+  the sign-in page first, signing in and out, "Look around first", then
+  from Home to a product, the basket and a delivery day. They catch what a
+  browser forgives.
 
 The web version builds with `npm run build:web` into `dist/`; `vercel.json`
 lets Vercel do that from the repository for a link to share.
@@ -99,11 +130,13 @@ src/
     products/      /products/<handle>     same paths as the website
     collections/   /collections/<handle>
     orders/        /orders/<id>
+    welcome.tsx    the sign-in page
     delivery.tsx, favourites.tsx
   components/    product card, delivery card, buttons, fields…
   shopify/       Storefront API (catalog, cart), Customer Account API (sign-in, orders)
   delivery/      rules, days and cut-offs, the Blis Delivery app, cart attributes
-  state/         the basket, the delivery choice, the session, favourites
+  state/         the basket, the delivery choice, the session, favourites;
+                 gate.ts decides whether the sign-in page comes first
   theme/         colours, type and radii from the website's theme
   lib/           money, HTML, links, storage
   config.ts      which store (EXPO_PUBLIC_* variables)

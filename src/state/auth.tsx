@@ -3,7 +3,8 @@
 
 import { createContext, useContext, useEffect, useMemo, useSyncExternalStore, type ReactNode } from 'react';
 
-import { keys, readSecret, writeSecret } from '@/lib/storage';
+import { config } from '@/config';
+import { keys, readJSON, readSecret, writeJSON, writeSecret } from '@/lib/storage';
 import * as api from '@/shopify/customer';
 import type { Customer, Session } from '@/shopify/customer';
 
@@ -16,6 +17,15 @@ export interface AuthState {
   customer: Customer | null;
   busy: boolean;
   error: string | null;
+  /** Came into the app without signing in ("Look around first"). */
+  guest: boolean;
+  /** Who signed in on this phone last, so the page can say "Welcome back". */
+  known: Known | null;
+}
+
+export interface Known {
+  name: string;
+  email: string;
 }
 
 type Listener = () => void;
@@ -26,7 +36,7 @@ const REFRESH = `${keys.session}.refresh`;
 const ID = `${keys.session}.id`;
 
 export class AuthStore {
-  private state: AuthState = { ready: false, session: null, customer: null, busy: false, error: null };
+  private state: AuthState = { ready: false, session: null, customer: null, busy: false, error: null, guest: false, known: null };
   private listeners = new Set<Listener>();
   private started = false;
   private refreshing: Promise<Session> | null = null;
@@ -59,16 +69,21 @@ export class AuthStore {
     if (this.started) return;
     this.started = true;
     void (async () => {
-      const [access, refreshToken, idToken] = await Promise.all([
+      const [access, refreshToken, idToken, known, guest] = await Promise.all([
         readSecret<{ accessToken: string; expiresAt: number }>(ACCESS),
         readSecret<string>(REFRESH),
         readSecret<string>(ID),
+        readJSON<Known>(keys.known),
+        readJSON<boolean>(keys.guest),
       ]);
+      // "Came in without signing in" only still counts where that is a real choice.
+      const mayBeGuest = config.signInFirst !== 'required' || !api.signInAvailable;
+      const before = { known: known && typeof known.email === 'string' ? known : null, guest: guest === true && mayBeGuest };
       if (!api.signInAvailable || !access?.accessToken) {
-        this.set({ ready: true });
+        this.set({ ready: true, ...before });
         return;
       }
-      this.set({ ready: true, session: { ...access, refreshToken: refreshToken ?? null, idToken: idToken ?? null } });
+      this.set({ ready: true, ...before, session: { ...access, refreshToken: refreshToken ?? null, idToken: idToken ?? null } });
       await this.loadCustomer();
     })();
   }
@@ -112,6 +127,12 @@ export class AuthStore {
     try {
       const customer = await this.request((session) => api.getCustomer(session));
       this.set({ customer });
+      const email = customer.emailAddress?.emailAddress;
+      if (email) {
+        const known = { name: customer.firstName ?? '', email };
+        this.set({ known });
+        void writeJSON(keys.known, known);
+      }
       const token = this.state.session?.accessToken;
       if (token) void this.cart.setBuyer(token);
     } catch {
@@ -119,11 +140,12 @@ export class AuthStore {
     }
   }
 
-  async signIn(): Promise<boolean> {
+  /** Opens Shopify's sign-in, with the email already filled in when one was typed. */
+  async signIn(email?: string): Promise<boolean> {
     if (this.state.busy) return false;
     this.set({ busy: true, error: null });
     try {
-      const session = await api.signIn();
+      const session = await api.signIn(email);
       if (!session) return false;
       this.set({ session });
       await this.save(session);
@@ -145,8 +167,24 @@ export class AuthStore {
 
   async signOut() {
     const session = this.state.session;
+    // Where signing in is a choice, signing out leaves you in the shop.
+    if (config.signInFirst !== 'required') this.enterAsGuest();
     await this.forget();
     if (session) await api.signOut(session);
+  }
+
+  /**
+   * Comes into the app without signing in. Remembered where that is a real
+   * choice (sign-in optional, or not set up yet); where sign-in is required
+   * it only lasts until the app is closed (a way in while developing).
+   */
+  enterAsGuest() {
+    this.set({ guest: true, error: null });
+    if (config.signInFirst === 'optional' || !api.signInAvailable) void writeJSON(keys.guest, true);
+  }
+
+  dismissError() {
+    if (this.state.error) this.set({ error: null });
   }
 }
 

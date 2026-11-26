@@ -3,7 +3,26 @@
 // time; the defaults are the Blis Farms store. Nothing here is secret: the
 // Storefront token is a public one, made to be shipped in an app.
 
+import { Platform } from 'react-native';
+
 const env = (value: string | undefined, fallback = '') => (value ?? '').trim() || fallback;
+
+export type SignInFirst = 'required' | 'optional' | 'off';
+
+/**
+ * Does the app open on the sign-in page? (EXPO_PUBLIC_SIGN_IN_FIRST)
+ *   required  nobody gets in without signing in or creating an account;
+ *   optional  the page comes first, with "Look around first";
+ *   off       the app opens on Home and sign-in waits under Account.
+ * Left unset it is required on phones and optional in a browser: sign-in in
+ * a browser needs the link's own addresses entered in Shopify (docs/SETUP.md),
+ * and a link nobody can get past is no use to anyone.
+ */
+export function signInFirstFrom(value: string | undefined, web: boolean): SignInFirst {
+  const asked = env(value).toLowerCase();
+  if (asked === 'required' || asked === 'optional' || asked === 'off') return asked;
+  return web ? 'optional' : 'required';
+}
 
 /** The storefront's domain, e.g. "blisfarms.com". */
 const storeDomain = env(process.env.EXPO_PUBLIC_SHOPIFY_STORE_DOMAIN, 'blisfarms.com')
@@ -27,6 +46,12 @@ export const config = {
    * account page instead of signing in inside the app.
    */
   customerClientId: env(process.env.EXPO_PUBLIC_SHOPIFY_CUSTOMER_CLIENT_ID),
+  /**
+   * Whether the app opens on the sign-in page (see signInFirstFrom). It only
+   * applies once sign-in is set up (the client id above): the app never
+   * locks people out of a shop they have no way to sign in to.
+   */
+  signInFirst: signInFirstFrom(process.env.EXPO_PUBLIC_SIGN_IN_FIRST, Platform.OS === 'web'),
   /** Numeric shop id: the app's sign-in callback is shop.<id>.app://callback. */
   shopId: env(process.env.EXPO_PUBLIC_SHOPIFY_SHOP_ID, '95581405551'),
   /** The delivery app's proxy path on the storefront. */

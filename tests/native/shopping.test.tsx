@@ -2,6 +2,7 @@
 // walking the way a shopper goes: home, a product, the basket, the delivery
 // choice. Runs once as an iPhone and once as an Android phone.
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router, type Href } from 'expo-router';
 import { act, fireEvent, renderRouter, screen, waitFor } from 'expo-router/testing-library';
 import { Platform } from 'react-native';
@@ -17,8 +18,10 @@ const go = (path: string, how: 'push' | 'navigate' = 'push') =>
     router[how](path as Href);
   });
 
-beforeAll(() => {
+beforeAll(async () => {
   globalThis.fetch = jest.fn(shop.fetch) as unknown as typeof fetch;
+  // Someone who is already past the sign-in page (welcome.test.tsx walks through it).
+  await AsyncStorage.setItem('blis.guest.v1', 'true');
 });
 
 it(`walks from home to a basket with a delivery day (${Platform.OS})`, async () => {

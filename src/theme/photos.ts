@@ -38,3 +38,5 @@ export const sectionPhoto = (handle: string): number | null => PHOTOS[handle] ??
 
 export const logoHorizontal = require('@/assets/images/logo-horizontal.png') as number;
 export const logoStacked = require('@/assets/images/logo-stacked.png') as number;
+/** The coastal watercolour along the foot of the sign-in page, as on the website's sign-in sheet. */
+export const welcomeCoast = require('@/assets/images/welcome-coast.jpg') as number;

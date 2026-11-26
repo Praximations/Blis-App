@@ -132,7 +132,9 @@ for (;;) {
     continue;
   }
   values.EXPO_PUBLIC_SHOPIFY_CUSTOMER_CLIENT_ID = pasted;
-  say('   ✓ Saved. Signing in can only be tried in a build on a phone (docs/SETUP.md, part 3).\n');
+  say('   ✓ Saved. Signing in can only be tried in a build on a phone (docs/SETUP.md, part 3).');
+  say('     From now on the app opens on the sign-in page: nobody gets in without signing in or');
+  say('     creating an account. To change that, set EXPO_PUBLIC_SIGN_IN_FIRST in .env (optional or off).\n');
   break;
 }
 rl.close();

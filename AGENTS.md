@@ -33,6 +33,12 @@ store and release setup is in [docs/SETUP.md](docs/SETUP.md).
 - Shopify's cart warnings are handled in one place, `CartStore.settle`
   (`src/state/cart.tsx`): empty lines out, only the remark about the lines
   the change touched, in the basket's words.
+- **Whether the sign-in page comes first is decided in one place**,
+  `src/state/gate.ts` (`gateFor`, from `EXPO_PUBLIC_SIGN_IN_FIRST`, whether
+  there is a client id, and the session). The root layout closes the shop's
+  screens with it; a new top-level screen goes inside that `Stack.Protected`
+  unless it must be reachable signed out. The gate never closes a build
+  that has no way to sign in.
 - Before committing: `npm run check` (typecheck, lint, tests). The tests in
   `tests/native/` render the real screens as an iPhone and as an Android
   phone against `fake-shop.ts`; a new screen or flow belongs there too.

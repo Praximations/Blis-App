@@ -27,6 +27,8 @@ export const colors = {
   textWarm: '#5b5147',
   price: '#4a3f35',
   fieldPaper: '#fcf9f3',
+  /** The sign-in page's sheet of cream paper. */
+  signInPaper: '#f8f3eb',
   /** Selected size, current section. */
   pickPaper: '#f3e9d8',
   cardLine: '#e8e2d8',

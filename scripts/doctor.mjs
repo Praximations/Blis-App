@@ -9,7 +9,7 @@
 import { checkShop, checkToken, discoverSignIn, looksLikeClientId, readSettings, request, storefront } from './lib/shop.mjs';
 
 const settings = readSettings();
-const { domain, store, token, clientId, shopId, proxyPath } = settings;
+const { domain, store, token, clientId, shopId, proxyPath, signInFirst } = settings;
 
 const results = [];
 const say = (mark, title, detail = '', todo = '') => results.push({ mark, title, detail, todo });
@@ -104,11 +104,29 @@ if (reachable) {
   } else if (signIn.shopId && signIn.shopId !== shopId) {
     fail('Sign-in', `EXPO_PUBLIC_SHOPIFY_SHOP_ID is ${shopId} but this shop's id is ${signIn.shopId}.`, `Set EXPO_PUBLIC_SHOPIFY_SHOP_ID=${signIn.shopId} (npm run setup does it).`);
   } else if (!clientId) {
-    warn('Sign-in', 'No client id. The Account tab opens the website instead of signing in inside the app.', `npm run setup. The callback address to enter in Shopify is shop.${shopId}.app://callback`);
+    warn(
+      'Sign-in',
+      'No client id. The Account tab opens the website instead of signing in inside the app, and the app opens on Home: the sign-in page only comes first once people can sign in.',
+      `npm run setup. The callback address to enter in Shopify is shop.${shopId}.app://callback`,
+    );
   } else if (!looksLikeClientId(clientId)) {
     warn('Sign-in', "The client id doesn't look like one (Shopify's are long codes of letters, digits and dashes).", 'Copy it again from the Headless storefront > Customer Account API.');
   } else {
     ok('Sign-in', `Client id set. In Shopify the callback address must be shop.${shopId}.app://callback (sign-in itself can only be tried in a build on a phone).`);
+    // What the app opens on (src/config.ts: signInFirstFrom).
+    const setting = 'EXPO_PUBLIC_SIGN_IN_FIRST';
+    if (signInFirst && !['required', 'optional', 'off'].includes(signInFirst)) {
+      warn('Sign-in first', `${setting} is "${signInFirst}", which isn't one of required, optional, off. The app treats it as left empty.`, `Set ${setting} in .env to one of the three, or leave it empty.`);
+    } else if (signInFirst === 'off') {
+      ok('Sign-in first', `Off (${setting}=off). The app opens on Home; sign-in is under Account.`);
+    } else if (signInFirst === 'optional') {
+      ok('Sign-in first', `Optional (${setting}=optional). The app opens on the sign-in page, with "Look around first".`);
+    } else {
+      ok(
+        'Sign-in first',
+        `Required${signInFirst ? ` (${setting}=required), on the web link too` : ' on phones; the web link keeps a "Look around first" button'}. Nobody gets into the app without signing in or creating an account. Apple sometimes asks shop apps to allow browsing without an account: ${setting}=optional does that (docs/SETUP.md, part 4).`,
+      );
+    }
   }
 }
 

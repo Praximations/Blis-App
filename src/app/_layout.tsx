@@ -13,9 +13,10 @@ import { Platform, View } from 'react-native';
 
 import { ScreenError } from '@/components/ScreenError';
 import { Toast } from '@/components/Toast';
-import { AuthProvider } from '@/state/auth';
+import { AuthProvider, useAuth } from '@/state/auth';
 import { CartProvider } from '@/state/cart';
 import { DeliveryProvider } from '@/state/delivery';
+import { gateFor } from '@/state/gate';
 import { ShelfProvider } from '@/state/shelf';
 import { authStore, cartStore, deliveryStore, shelfStore } from '@/state/stores';
 import { colors } from '@/theme/tokens';
@@ -56,13 +57,7 @@ export default function RootLayout() {
   });
   // Without its fonts the app is still usable; never leave the splash up.
   // In a browser the page shows at once and the fonts follow.
-  const ready = loaded || !!failed || Platform.OS === 'web';
-
-  useEffect(() => {
-    if (ready) void SplashScreen.hideAsync().catch(() => undefined);
-  }, [ready]);
-
-  if (!ready) return null;
+  const fontsReady = loaded || !!failed || Platform.OS === 'web';
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -71,10 +66,7 @@ export default function RootLayout() {
           <AuthProvider store={authStore}>
             <ShelfProvider store={shelfStore}>
               <ThemeProvider value={theme}>
-                <View style={{ flex: 1, backgroundColor: colors.white }}>
-                  <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.white } }} />
-                  <Toast />
-                </View>
+                <Screens fontsReady={fontsReady} />
                 <StatusBar style="dark" />
               </ThemeProvider>
             </ShelfProvider>
@@ -82,5 +74,42 @@ export default function RootLayout() {
         </DeliveryProvider>
       </CartProvider>
     </QueryClientProvider>
+  );
+}
+
+/**
+ * The app's screens, behind the sign-in page when that comes first (see
+ * state/gate.ts): the shop's screens can only be reached once the gate is
+ * open. Until then every path leads to the sign-in page, which sends
+ * people on itself once they are in.
+ */
+function Screens({ fontsReady }: { fontsReady: boolean }) {
+  const auth = useAuth();
+  const gate = gateFor(auth);
+  // The splash stays up until it is known which of the two to show.
+  const ready = fontsReady && gate !== 'loading';
+
+  useEffect(() => {
+    if (ready) void SplashScreen.hideAsync().catch(() => undefined);
+  }, [ready]);
+
+  if (!ready) return null;
+
+  return (
+    <View style={{ flex: 1, backgroundColor: colors.white }}>
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.white } }}>
+        <Stack.Protected guard={gate === 'open'}>
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="products/[handle]" />
+          <Stack.Screen name="collections/[handle]" />
+          <Stack.Screen name="orders/[id]" />
+          <Stack.Screen name="delivery" />
+          <Stack.Screen name="favourites" />
+          <Stack.Screen name="delete-account" />
+        </Stack.Protected>
+        <Stack.Screen name="welcome" options={{ animation: 'fade', contentStyle: { backgroundColor: colors.signInPaper } }} />
+      </Stack>
+      <Toast />
+    </View>
   );
 }

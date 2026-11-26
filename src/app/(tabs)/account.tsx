@@ -119,18 +119,11 @@ export default function AccountScreen() {
               Sign in with your email address to see your orders and deliveries and to order your favourites again. We
               send you a one-time code, no password needed.
             </Text>
-            {auth.available ? (
-              <Button
-                label="Sign in"
-                onPress={() => void auth.store.signIn()}
-                loading={auth.busy || !auth.ready}
-                wide
-                testID="sign-in"
-              />
+            {auth.available || __DEV__ ? (
+              <Button label="Sign in or create account" onPress={() => router.push('/welcome')} loading={!auth.ready} wide testID="sign-in" />
             ) : (
               <Button label="Sign in on the website" icon="external-link" onPress={() => void openWeb('/account')} wide />
             )}
-            {auth.error ? <Text style={styles.error}>{auth.error}</Text> : null}
           </View>
         )}
 
@@ -252,7 +245,6 @@ const styles = StyleSheet.create({
   intro: { gap: 4 },
   signIn: { alignItems: 'center', gap: 14, backgroundColor: colors.fieldPaper, borderRadius: radius.xl, padding: 24 },
   logo: { width: 120, height: 136 },
-  error: { fontFamily: fonts.text, fontSize: 13, color: colors.red, textAlign: 'center' },
   group: { gap: 10 },
   inline: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   card: { backgroundColor: colors.linen100, borderRadius: radius.lg, padding: 18, gap: 10 },

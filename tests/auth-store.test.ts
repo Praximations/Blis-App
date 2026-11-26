@@ -5,9 +5,11 @@ import { AuthStore } from '@/state/auth';
 import type { CartStore } from '@/state/cart';
 
 jest.mock('@/lib/storage', () => ({
-  keys: { session: 'session' },
+  keys: { session: 'session', known: 'known', guest: 'guest' },
   readSecret: jest.fn(),
   writeSecret: jest.fn(),
+  readJSON: jest.fn(),
+  writeJSON: jest.fn(),
 }));
 jest.mock('@/shopify/customer', () => {
   // The real error class, so `instanceof` works; everything that talks to Shopify is a stand-in.
@@ -31,7 +33,10 @@ jest.mock('@/shopify/customer', () => {
 });
 
 const shopify = jest.mocked(api);
-const storage = jest.requireMock('@/lib/storage') as { readSecret: jest.Mock; writeSecret: jest.Mock };
+const storage = jest.requireMock('@/lib/storage') as { readSecret: jest.Mock; writeSecret: jest.Mock; readJSON: jest.Mock; writeJSON: jest.Mock };
+
+/** What the phone remembers outside the keychain. */
+const remembered = new Map<string, unknown>();
 
 /** What the phone's keychain holds. */
 const keychain = new Map<string, unknown>();
@@ -65,6 +70,12 @@ beforeEach(() => {
   storage.writeSecret.mockImplementation(async (key: string, value: unknown) => {
     if (value == null) keychain.delete(key);
     else keychain.set(key, value);
+  });
+  remembered.clear();
+  storage.readJSON.mockImplementation(async (key: string) => remembered.get(key) ?? null);
+  storage.writeJSON.mockImplementation(async (key: string, value: unknown) => {
+    if (value == null) remembered.delete(key);
+    else remembered.set(key, value);
   });
   shopify.getCustomer.mockResolvedValue(customer);
 });
@@ -152,6 +163,34 @@ describe('keeping the session fresh', () => {
     await expect(store.request(read)).rejects.toThrow("didn't answer");
     expect(store.getState().session?.accessToken).toBe('access-1');
     expect(shopify.refresh).not.toHaveBeenCalled();
+  });
+});
+
+describe('who was here before', () => {
+  it('remembers who signed in, for "Welcome back", and still does after signing out', async () => {
+    shopify.signIn.mockResolvedValue(session('access-1', 60));
+    const store = await start();
+    expect(store.getState().known).toBeNull();
+    await store.signIn('dana@example.com');
+    expect(shopify.signIn).toHaveBeenCalledWith('dana@example.com');
+    expect(store.getState().known).toEqual({ name: 'Dana', email: 'dana@example.com' });
+    await store.signOut();
+    expect(store.getState()).toMatchObject({ session: null, known: { name: 'Dana' } });
+
+    // The next time the app opens.
+    const again = await start();
+    expect(again.getState().known).toEqual({ name: 'Dana', email: 'dana@example.com' });
+  });
+
+  it('lets a guest in for now, but not for good, where sign-in is required', async () => {
+    const store = await start();
+    expect(store.getState().guest).toBe(false);
+    store.enterAsGuest();
+    expect(store.getState().guest).toBe(true);
+    // Sign-in is set up and required: the way in isn't kept.
+    expect(remembered.has('guest')).toBe(false);
+    remembered.set('guest', true);
+    expect((await start()).getState().guest).toBe(false);
   });
 });
 
